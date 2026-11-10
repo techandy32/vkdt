@@ -32,6 +32,7 @@ still on GPU.
 
 * [image operation modules documentation](src/pipe/modules/readme.md)
 * [how to do selected things](doc/howto/howto.md)
+* [architecture guide: how the code fits together](doc/architecture/readme.md)
 
 ## ecosystem repositories
 

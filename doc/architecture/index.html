@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>vkdt Architecture Guide</title>
+<style>
+/* layout: one reading column, with figures built as small instrument panels (title bar, body, caption)
+   in the manner of vkdt's own darkroom. colours come from bin/style.txt; green marks what lives on the
+   GPU, amber what touches the CPU or the disk. */
+:root{
+  --bg:#0b0c0c; --panel:#141516; --panel2:#1e2021; --line:#2f3437; --fg:#d2d2d2; --dim:#8f979b;
+  --gpu:#28de84; --gpu2:#26e2e6; --steel:#74a7d0; --cpu:#e6a94d; --hot:#ff7466;
+  --screen:#060606; --screen-fg:#d2d2d2; --screen-acc:#28de84;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f1f4f3; --panel:#ffffff; --panel2:#e8eceb; --line:#cdd5d2; --fg:#17201d; --dim:#57635f;
+    --gpu:#0a8650; --gpu2:#087986; --steel:#2c6292; --cpu:#96590a; --hot:#c0392d;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f1f4f3; --panel:#ffffff; --panel2:#e8eceb; --line:#cdd5d2; --fg:#17201d; --dim:#57635f;
+  --gpu:#0a8650; --gpu2:#087986; --steel:#2c6292; --cpu:#96590a; --hot:#c0392d;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 16px/1.62 var(--sans)}
+.wrap{max-width:1000px;margin:0 auto;padding-block:44px 88px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+a{color:var(--gpu2);text-underline-offset:3px}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--gpu2);outline-offset:2px}
+code,pre,kbd{font-family:var(--mono)}
+code{font-size:.875em;background:var(--panel2);padding:.08em .36em;border-radius:3px;overflow-wrap:anywhere}
+p{margin:0}
+strong{font-weight:600}
+
+/* header */
+.top{display:flex;flex-direction:column;gap:18px;margin-bottom:56px}
+.eyebrow{font:500 12.5px/1.4 var(--mono);color:var(--dim);letter-spacing:.02em;overflow-wrap:anywhere}
+.eyebrow b{color:var(--gpu);font-weight:500}
+h1{font:600 clamp(27px,5.4vw,46px)/1.12 var(--mono);letter-spacing:-.025em;margin:0;text-wrap:balance}
+.lede{font-size:clamp(17px,2.2vw,19px);line-height:1.58;max-width:62ch}
+.toc{display:flex;flex-wrap:wrap;gap:8px}
+.toc a{font:500 13px/1 var(--mono);color:var(--fg);text-decoration:none;padding:9px 11px;border:1px solid var(--line);border-radius:3px;background:var(--panel)}
+.toc a:hover{border-color:var(--gpu);color:var(--gpu)}
+.key{display:flex;flex-wrap:wrap;gap:6px 20px;font:400 13px/1.4 var(--mono);color:var(--dim)}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+.key .k-gpu{background:var(--gpu)} .key .k-cpu{background:var(--cpu)}
+
+/* sections */
+section{display:flex;flex-direction:column;gap:18px;margin-top:72px;scroll-margin-top:16px}
+.sec-head{display:flex;flex-direction:column;gap:8px}
+h2{font:600 clamp(23px,3.6vw,30px)/1.2 var(--sans);letter-spacing:-.012em;margin:0;text-wrap:balance}
+h3{font:600 17px/1.3 var(--sans);margin:0}
+.prose{max-width:66ch;display:flex;flex-direction:column;gap:14px}
+.points{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px 28px;margin:6px 0 0;padding:0}
+.points>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.points dt{font-weight:600}
+.points dd{margin:0;color:var(--dim);font-size:15px;line-height:1.55}
+.points dd code{color:var(--fg)}
+
+/* figure = panel */
+.fig{margin:10px 0 6px;border:1px solid var(--line);background:var(--panel);border-radius:4px;min-width:0}
+.fig-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;
+  padding:8px 10px 8px 14px;background:var(--panel2);border-bottom:1px solid var(--line);border-radius:3px 3px 0 0}
+.fig-title{font:500 12.5px/1.3 var(--mono);color:var(--dim)}
+.fig-body{padding:18px 16px}
+.fig figcaption{padding:11px 14px;border-top:1px solid var(--line);color:var(--dim);font-size:14px;line-height:1.5}
+.fig svg{display:block;width:100%;height:auto;max-width:560px;margin:0 auto}
+.fig svg text{font-family:var(--mono);fill:currentColor}
+.scroll-x{overflow-x:auto}
+
+/* controls */
+.transport{display:flex;align-items:center;gap:6px}
+.transport button,.seg button{font:500 13px/1 var(--mono);color:var(--fg);background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;height:32px;min-width:34px;padding:0 9px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.transport button:hover,.seg button:hover{border-color:var(--gpu)}
+.transport svg{width:11px;height:11px;max-width:none;margin:0;fill:currentColor}
+.transport .i-pause{display:none}
+.playing .transport .i-pause{display:block}
+.playing .transport .i-play{display:none}
+.transport .count{font:400 12.5px/1 var(--mono);color:var(--dim);min-width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{height:auto;min-height:34px;padding:7px 12px;text-align:left;line-height:1.25}
+.seg button[aria-pressed="true"]{border-color:var(--gpu);color:var(--gpu);background:color-mix(in srgb,var(--gpu) 10%,var(--panel))}
+
+/* 1 · darkroom */
+.dr{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px}
+.dr-view{display:flex;flex-direction:column;gap:12px;min-width:0}
+.screen{position:relative;background:var(--screen);border:1px solid var(--line);border-radius:2px;line-height:0}
+.screen canvas{display:block;width:100%;height:auto;image-rendering:pixelated;aspect-ratio:3/2}
+.screen-tag{position:absolute;left:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:6px;font:500 12px/1 var(--mono)}
+.screen-tag span{background:color-mix(in srgb,var(--screen) 82%,transparent);color:var(--screen-fg);padding:6px 8px;border-radius:2px}
+.screen-tag .fmt{color:var(--screen-acc)}
+.dr-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.param{display:flex;flex-direction:column;gap:6px;flex:1 1 220px;min-width:0;font:400 12.5px/1.3 var(--mono);color:var(--dim)}
+.param .row{display:flex;align-items:center;gap:10px}
+.param input[type=range]{flex:1;min-width:0;accent-color:var(--gpu);height:22px;margin:0}
+.param output{color:var(--fg);min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+.status{font:400 12.5px/1.45 var(--mono);color:var(--dim);min-height:2.9em}
+.status b{color:var(--gpu);font-weight:500}
+.modlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;min-width:0}
+.modlist button{width:100%;display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:8px;align-items:baseline;text-align:left;
+  background:transparent;border:1px solid transparent;border-radius:3px;padding:6px 8px;color:var(--fg);cursor:pointer;font:inherit}
+.modlist button:hover{border-color:var(--line)}
+.modlist .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--dim);align-self:center;justify-self:center}
+.modlist .nm{font:500 13.5px/1.3 var(--mono)}
+.modlist .ds{grid-column:2;color:var(--dim);font-size:13px;line-height:1.4}
+.modlist li.done .dot{background:var(--gpu);border-color:var(--gpu);opacity:.55}
+.modlist li.cpu.done .dot{background:var(--cpu);border-color:var(--cpu)}
+.modlist li.now button{background:color-mix(in srgb,var(--gpu) 11%,transparent);border-color:color-mix(in srgb,var(--gpu) 55%,transparent)}
+.modlist li.now .dot{background:var(--gpu);border-color:var(--gpu);opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--gpu) 25%,transparent)}
+.modlist li.now .nm{color:var(--gpu)}
+.modlist li.cpu.now button{background:color-mix(in srgb,var(--cpu) 12%,transparent);border-color:color-mix(in srgb,var(--cpu) 55%,transparent)}
+.modlist li.cpu.now .dot{background:var(--cpu);border-color:var(--cpu);box-shadow:0 0 0 3px color-mix(in srgb,var(--cpu) 25%,transparent)}
+.modlist li.cpu.now .nm{color:var(--cpu)}
+.modlist.rerun li .dot{animation:rerun .5s ease-out both;animation-delay:calc(var(--i)*45ms)}
+@keyframes rerun{0%{transform:scale(1)}40%{transform:scale(2.1);background:var(--gpu2);border-color:var(--gpu2);opacity:1}100%{transform:scale(1)}}
+.branch{padding:10px;border:1px dashed var(--line);border-radius:3px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px;align-items:center}
+.branch .nm{font:500 12.5px/1.4 var(--mono);color:var(--dim)}
+.branch .nm b{color:var(--fg);font-weight:500}
+.branch canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:var(--screen);border-radius:2px;filter:brightness(.3) saturate(.3);transition:filter .5s}
+.branch.live canvas{filter:none}
+
+pre.cfg{margin:0;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow-x:auto;font-size:13px;line-height:1.75;color:var(--fg)}
+pre.cfg .c{color:var(--dim)}
+pre.cfg .k{color:var(--gpu)}
+pre.cfg .v{color:var(--cpu)}
+
+/* 2 · stack */
+.stack{display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 16px;align-items:baseline;padding:11px 14px;border:1px solid var(--line);
+  border-radius:3px;background:var(--bg);transition:opacity .35s,border-color .35s,background .35s}
+.layer .nm{font:600 14px/1.3 var(--mono)}
+.layer .ds{color:var(--dim);font-size:14.5px;line-height:1.5}
+.layer .ds code{color:var(--fg)}
+.layer.off{opacity:.28}
+.layer.pulse{animation:pulse .7s ease-out both;animation-delay:calc(var(--i)*110ms)}
+@keyframes pulse{0%{border-color:var(--line)}35%{border-color:var(--gpu);background:color-mix(in srgb,var(--gpu) 13%,var(--bg))}100%{border-color:var(--line)}}
+.layer.hw{border-style:dashed}
+.layer.hw .nm{color:var(--gpu)}
+.layer-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px}
+
+/* shared svg styling */
+.bx{fill:var(--panel2);stroke:var(--line);stroke-width:1.2}
+.bx-m{fill:var(--bg);stroke:var(--steel);stroke-width:1.4}
+.ln{stroke:var(--dim);stroke-width:1.3;fill:none}
+.ln-d{stroke:var(--line);stroke-width:1.2;fill:none;stroke-dasharray:3 4}
+.t-dim{fill:var(--dim) !important}
+.t-gpu{fill:var(--gpu) !important}
+.t-cpu{fill:var(--cpu) !important}
+.flow{stroke:var(--gpu);stroke-width:2;fill:none;stroke-dasharray:5 7;animation:dash 1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-24}}
+
+/* 3 · layers */
+.lay .nd{fill:var(--panel2);stroke:var(--line);stroke-width:1.2;animation:ndpulse 7.2s linear infinite;animation-delay:calc(var(--i)*.6s)}
+@keyframes ndpulse{0%{fill:var(--panel2);stroke:var(--line)}2%,7%{fill:color-mix(in srgb,var(--gpu) 30%,var(--panel2));stroke:var(--gpu)}12%,100%{fill:var(--panel2);stroke:var(--line)}}
+
+/* 4 · run */
+.runwrap{display:flex;flex-direction:column;gap:18px}
+.run-top{background:var(--panel)}
+.run-top svg{max-width:620px}
+.runfig .g{opacity:0;transition:opacity .45s}
+.runfig .g.on{opacity:1}
+.runfig .g.on.kept{opacity:.28}
+.runfig .g.now .hl{stroke:var(--gpu)}
+.runfig .g.now text.hl{fill:var(--gpu) !important;stroke:none}
+.runfig .g.now.cpu .hl{stroke:var(--cpu)}
+.runfig .g.now.cpu text.hl{fill:var(--cpu) !important;stroke:none}
+.runfig .g .flow{animation-play-state:paused;opacity:0}
+.runfig .g.now .flow{animation-play-state:running;opacity:1}
+.steps{list-style:none;counter-reset:st;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:column;grid-template-rows:repeat(4,auto);gap:2px 18px}
+.steps li{counter-increment:st;transition:opacity .3s}
+.steps button{width:100%;display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:8px;text-align:left;background:transparent;border:1px solid transparent;
+  border-radius:3px;padding:7px 8px;color:var(--fg);font:inherit;cursor:pointer}
+.steps button::before{content:counter(st);font:500 12.5px/1.6 var(--mono);color:var(--dim)}
+.steps button:hover{border-color:var(--line)}
+.steps .hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-weight:600;font-size:15px}
+.steps .hd code{font-weight:400;font-size:11.5px;color:var(--dim);background:none;padding:0}
+.steps .tx{grid-column:2;color:var(--dim);font-size:14px;line-height:1.5}
+.steps .tx code{color:var(--fg)}
+.steps li.now button{background:color-mix(in srgb,var(--gpu) 10%,transparent);border-color:color-mix(in srgb,var(--gpu) 50%,transparent)}
+.steps li.now button::before{color:var(--gpu)}
+.steps li.skip{opacity:.34}
+.steps li.skip .hd{text-decoration:line-through;text-decoration-thickness:1px}
+.flags{font:400 12.5px/1.5 var(--mono);color:var(--dim);margin-top:10px;overflow-wrap:anywhere;text-align:center}
+.flags b{color:var(--gpu);font-weight:500}
+
+/* 5 · memory */
+.mem{display:flex;flex-direction:column;gap:14px}
+.mem-nodes{display:flex;flex-wrap:wrap;gap:5px;list-style:none;margin:0;padding:0}
+.mem-nodes li{font:500 12.5px/1 var(--mono);padding:7px 8px;border:1px solid var(--line);border-radius:3px;color:var(--dim);transition:all .3s}
+.mem-nodes li.done{color:var(--fg)}
+.mem-nodes li.now{color:var(--gpu);border-color:var(--gpu);background:color-mix(in srgb,var(--gpu) 12%,transparent)}
+.heap-lab{display:flex;justify-content:space-between;gap:12px;font:400 12.5px/1.4 var(--mono);color:var(--dim)}
+.heap{position:relative;height:54px;background:var(--bg);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.heap .tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line);opacity:.6}
+.blk{position:absolute;top:5px;bottom:5px;border-radius:2px;border:1.5px solid var(--gpu);background:color-mix(in srgb,var(--gpu) 24%,transparent);
+  display:flex;align-items:center;justify-content:center;font:500 12px/1 var(--mono);color:var(--fg);overflow:hidden;white-space:nowrap;
+  transition:opacity .45s,transform .45s,background .45s,border-color .45s;opacity:0;transform:scaleY(.3)}
+.blk.live{opacity:1;transform:none}
+.blk.new{background:color-mix(in srgb,var(--gpu) 55%,transparent)}
+.blk.keep{border-color:var(--cpu);background:color-mix(in srgb,var(--cpu) 22%,transparent)}
+.blk.freed{opacity:.0;transform:scaleY(.3)}
+.mem-say{font-size:14.5px;line-height:1.5;min-height:3em;color:var(--fg)}
+.mem-say code{color:var(--fg)}
+.mem-stat{display:flex;flex-wrap:wrap;gap:8px 28px;font:400 13px/1.4 var(--mono);color:var(--dim)}
+.mem-stat b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+.mem-stat .good b{color:var(--gpu)}
+
+/* 6 · module */
+.anat{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.files,.made{display:flex;flex-direction:column;gap:10px;min-width:0}
+.file,.piece{border:1px solid var(--line);border-radius:3px;background:var(--bg);min-width:0;transition:border-color .3s,box-shadow .3s}
+.file .fn,.piece .fn{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:500 12.5px/1.4 var(--mono);padding:7px 10px;border-bottom:1px solid var(--line);color:var(--fg)}
+.file .fn span,.piece .fn span{color:var(--dim);font-weight:400}
+.file pre{margin:0;padding:9px 10px;overflow-x:auto;font-size:12.5px;line-height:1.6}
+.file pre mark{background:color-mix(in srgb,var(--gpu) 22%,transparent);color:inherit;border-radius:2px;padding:0 2px}
+.piece .pb{padding:10px;display:flex;flex-direction:column;gap:8px;font:400 13px/1.5 var(--mono)}
+.piece .pb .row{display:flex;align-items:center;gap:10px}
+.piece input[type=range]{flex:1;min-width:0;accent-color:var(--gpu);margin:0;height:22px}
+.piece output,.piece .num{color:var(--gpu);font-weight:500;font-variant-numeric:tabular-nums;min-width:48px;text-align:right}
+.piece .num.inl{min-width:0}
+.flash{border-color:var(--gpu) !important;box-shadow:0 0 0 2px color-mix(in srgb,var(--gpu) 22%,transparent)}
+.ramp{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.ramp-lab{font:400 11.5px/1.3 var(--mono);color:var(--dim)}
+.ramp i{display:block;height:20px;border-radius:1px;border:1px solid var(--line)}
+.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
+.tbl th{font:500 12.5px/1.4 var(--mono);color:var(--dim);text-align:left;padding:8px 12px 8px 0;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+.tbl td:first-child{white-space:nowrap}
+.tbl td:last-child,.tbl th:last-child{padding-right:0}
+.tbl .dimc{color:var(--dim)}
+
+/* 7 · feedback */
+.fb .slot{fill:var(--bg);stroke:var(--line);stroke-width:1.3;transition:all .4s}
+.fb .w,.fb .r{opacity:.14;transition:opacity .4s}
+.fb .w text,.fb .r text{opacity:0;transition:opacity .4s}
+.fb[data-f="0"] .w0 text,.fb[data-f="0"] .r1 text,.fb[data-f="1"] .w1 text,.fb[data-f="1"] .r0 text{opacity:1}
+.fb[data-f="0"] .w0,.fb[data-f="0"] .r1,.fb[data-f="1"] .w1,.fb[data-f="1"] .r0{opacity:1}
+.fb[data-f="0"] .s0,.fb[data-f="1"] .s1{stroke:var(--gpu);fill:color-mix(in srgb,var(--gpu) 16%,var(--bg))}
+.fb[data-f="0"] .s1,.fb[data-f="1"] .s0{stroke:var(--steel)}
+
+/* 8 · loop */
+.loop .st{fill:var(--bg);stroke:var(--line);stroke-width:1.3;transition:all .35s}
+.loop .st.now{stroke:var(--steel);fill:color-mix(in srgb,var(--steel) 18%,var(--bg))}
+.loop .gq{fill:var(--bg);stroke:var(--line);stroke-width:1.3;transition:all .35s}
+.loop .gq.now{stroke:var(--gpu);fill:color-mix(in srgb,var(--gpu) 16%,var(--bg))}
+.loop .a{stroke:var(--dim);stroke-width:1.3;fill:none;transition:stroke .35s}
+.loop .a.now{stroke:var(--gpu)}
+
+/* 9 · disk */
+pre.tree{margin:0;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow-x:auto;font-size:13px;line-height:1.8}
+pre.tree .n{color:var(--dim)}
+pre.tree .d{color:var(--steel)}
+pre.tree .o{color:var(--cpu)}
+pre.tree .g{color:var(--gpu)}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px 30px;margin:0}
+.gloss>div{min-width:0}
+.gloss dt{font:600 14px/1.4 var(--mono);color:var(--gpu)}
+.gloss dd{margin:4px 0 0;color:var(--dim);font-size:14.5px;line-height:1.55}
+.foot{margin-top:72px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);font-size:13.5px;line-height:1.6;max-width:70ch}
+
+@media (max-width:760px){
+  .dr,.anat{grid-template-columns:minmax(0,1fr)}
+  .steps{grid-template-columns:minmax(0,1fr);grid-auto-flow:row;grid-template-rows:none}
+  .run-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;margin:-14px -12px 0;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+  .layer{grid-template-columns:minmax(0,1fr)}
+  .fig-body{padding:14px 12px}
+  section{margin-top:56px}
+  .tbl td:first-child{white-space:normal}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .runfig .g.now .flow{opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow"><b>vkdt</b> · architecture guide</p>
+  <h1>how a raw file becomes a picture</h1>
+  <p class="lede">vkdt develops raw photos and video on the graphics card. Every image operation is a small GPU program, and the whole application is organised around one structure: a graph of those programs. This guide follows an image through that graph, then looks at each part of the code that makes it work.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#flow">follow one image</a>
+    <a href="#parts">the parts</a>
+    <a href="#layers">modules and nodes</a>
+    <a href="#run">one run</a>
+    <a href="#memory">memory</a>
+    <a href="#module">inside a module</a>
+    <a href="#time">frames</a>
+    <a href="#app">the app</a>
+    <a href="#disk">files on disk</a>
+    <a href="#map">source map</a>
+  </nav>
+  <p class="key"><span><i class="k-gpu"></i>happens on the GPU</span><span><i class="k-cpu"></i>touches the CPU or the disk</span></p>
+</header>
+
+<!-- ───────────────────────── 1 · flow ───────────────────────── -->
+<section id="flow">
+  <div class="sec-head">
+    <p class="eyebrow">bin/default-darkroom.i-raw</p>
+    <h2>Follow one image through the graph</h2>
+  </div>
+  <div class="prose">
+    <p>When you open a raw file in the darkroom, vkdt loads the graph below. Each row in the list is a <em>module</em>: one image operation with inputs, outputs and parameters. Press play, or pick a module, to see the buffer it hands to the next one.</p>
+  </div>
+
+  <figure class="fig" id="fig-flow">
+    <div class="fig-bar">
+      <span class="fig-title">darkroom · default graph for a raw file</span>
+      <div class="transport">
+        <button type="button" data-act="prev" aria-label="Previous module"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button>
+        <button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button>
+        <button type="button" data-act="next" aria-label="Next module"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button>
+        <span class="count" data-count>10 / 10</span>
+      </div>
+    </div>
+    <div class="fig-body">
+      <div class="dr">
+        <div class="dr-view">
+          <div class="screen">
+            <canvas id="simc" width="192" height="128" role="img" aria-label="Simulated image buffer after the selected module"></canvas>
+            <div class="screen-tag"><span id="simname">display</span><span class="fmt" id="simfmt">rgba · f16</span></div>
+          </div>
+          <p class="status" id="simsay" aria-live="polite"></p>
+          <div class="dr-ctl">
+            <label class="param" for="ev">param:colour:01:exposure
+              <span class="row"><input type="range" id="ev" min="-2" max="2" step="0.1" value="0"><output id="evo" for="ev">0.0 ev</output></span>
+            </label>
+          </div>
+          <div class="branch" id="branch">
+            <span class="nm">a second output<br><b>grade → hist → display:hist</b></span>
+            <canvas id="histc" width="192" height="64" role="img" aria-label="Waveform histogram of the graded image"></canvas>
+          </div>
+        </div>
+        <div>
+          <ol class="modlist" id="modlist"></ol>
+
+        </div>
+      </div>
+    </div>
+    <figcaption>A toy 192×128 sensor computed in your browser to show what each step is for. It imitates the modules; it does not run vkdt's shaders.</figcaption>
+  </figure>
+
+  <dl class="points">
+    <div><dt>The CPU only works at the edges</dt><dd><code>i-raw</code> decodes the file on the CPU and uploads it once. From then on the image stays in GPU memory until a sink takes it.</dd></div>
+    <div><dt>The edit is a text file</dt><dd>The list above is stored next to your photo as <code>IMG_0412.CR2.cfg</code>. Nothing else describes the edit, and the original is never touched.</dd></div>
+    <div><dt>A graph, not a chain</dt><dd><code>grade</code> feeds the main display and also <code>hist</code>, which draws the waveform into a second sink. Modules can have several inputs and outputs.</dd></div>
+  </dl>
+
+  <pre class="cfg" aria-label="Excerpt of a vkdt graph file"><span class="c"># a module instance: name, instance, then its position in the node editor</span>
+<span class="k">module</span>:colour:01:<span class="v">931:400</span>
+<span class="k">module</span>:filmcurv:01:<span class="v">1094:400</span>
+<span class="c"># a wire, from module:instance:connector to module:instance:connector</span>
+<span class="k">connect</span>:colour:01:output:filmcurv:01:input
+<span class="c"># a parameter value</span>
+<span class="k">param</span>:colour:01:exposure:<span class="v">0</span></pre>
+</section>
+
+<!-- ───────────────────────── 2 · parts ───────────────────────── -->
+<section id="parts">
+  <div class="sec-head">
+    <p class="eyebrow">src/</p>
+    <h2>Three programs, one engine</h2>
+  </div>
+  <div class="prose">
+    <p>The repository builds three executables. All of them link the same graph engine and differ only in what sits on top of it. Pick one to see which parts it uses.</p>
+  </div>
+
+  <figure class="fig" id="fig-stack">
+    <div class="fig-bar">
+      <span class="fig-title">what each binary is made of</span>
+      <div class="seg" role="group" aria-label="Program">
+        <button type="button" data-prog="gui" aria-pressed="true">vkdt</button>
+        <button type="button" data-prog="cli" aria-pressed="false">vkdt-cli</button>
+        <button type="button" data-prog="fit" aria-pressed="false">vkdt-fit</button>
+      </div>
+    </div>
+    <div class="fig-body">
+      <div class="stack">
+        <div class="layer-pair">
+          <div class="layer" data-use="gui"><span class="nm">src/gui</span><span class="ds">The window and its four views: files, lighttable, darkroom and the node editor. Widgets are drawn with nuklear, an immediate-mode toolkit.</span></div>
+          <div class="layer" data-use="gui"><span class="nm">src/snd</span><span class="ds">Audio playback for video, through pipewire.</span></div>
+        </div>
+        <div class="layer-pair">
+          <div class="layer" data-use="cli"><span class="nm">src/cli</span><span class="ds">Parses the command line and calls <code>dt_graph_export</code> once. No window and no display server needed.</span></div>
+          <div class="layer" data-use="fit"><span class="nm">src/fit</span><span class="ds">Runs a graph again and again, nudging chosen parameters until a target is reached. Used to fit vignetting, for example.</span></div>
+        </div>
+        <div class="layer" data-use="gui cli fit"><span class="nm">src/db</span><span class="ds">The folder database: image list, ratings, labels and the thumbnail cache. Linked into all three; the lighttable is its main user.</span></div>
+        <div class="layer" data-use="gui cli fit"><span class="nm">src/pipe</span><span class="ds">The graph engine. Reads <code>.cfg</code> files, negotiates image sizes, creates nodes, plans memory and records the Vulkan command buffer.</span></div>
+        <div class="layer" data-use="gui cli fit"><span class="nm">pipe/modules</span><span class="ds">About a hundred modules. Each is a folder of compiled shaders (<code>.spv</code>) and optional C code (<code>lib&lt;name&gt;.so</code>), found and loaded when the program starts.</span></div>
+        <div class="layer" data-use="gui cli fit"><span class="nm">src/core</span><span class="ds">Thread pool, logging, file and path helpers.</span></div>
+        <div class="layer" data-use="gui cli fit"><span class="nm">src/qvk</span><span class="ds">A thin layer over Vulkan: picks the GPU and creates the device, the queues, the swapchain and the samplers.</span></div>
+        <div class="layer hw" data-use="gui cli fit"><span class="nm">the GPU</span><span class="ds">Separate queues keep work apart: compute for the graph you are editing, graphics for the interface, two work queues for background thumbnails.</span></div>
+      </div>
+    </div>
+    <figcaption id="stack-say">vkdt, the GUI, uses everything except the two command-line front ends.</figcaption>
+  </figure>
+</section>
+
+<!-- ───────────────────────── 3 · layers ───────────────────────── -->
+<section id="layers">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/module.h · src/pipe/node.h</p>
+    <h2>You edit modules, the GPU runs nodes</h2>
+  </div>
+  <div class="prose">
+    <p>The graph exists twice. The <strong>module graph</strong> is what the <code>.cfg</code> file describes and what you see in the interface. The <strong>node graph</strong> is what actually executes: every node is one shader run, usually a single compute dispatch.</p>
+    <p>Each module turns itself into nodes through its <code>create_nodes</code> callback. A module without one becomes a single node running its <code>main.comp</code> shader; <code>grade</code> and <code>exposure</code> work this way. A module like <code>llap</code> builds a whole pyramid.</p>
+  </div>
+
+  <figure class="fig lay">
+    <div class="fig-bar"><span class="fig-title">three modules and the nodes they create</span></div>
+    <div class="fig-body">
+      <svg viewBox="0 0 400 252" role="img" aria-label="The modules filmcurv, llap and grade. filmcurv and grade each become one node. llap becomes a curve node, a chain of reduce nodes, a chain of assemble nodes and a colour node.">
+        <defs><marker id="la" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--dim)"/></marker></defs>
+        <text x="2" y="14" font-size="11" class="t-dim">module layer: what the .cfg describes</text>
+        <rect class="bx-m" x="2" y="24" width="84" height="40" rx="3"/><text x="44" y="48.5" font-size="12.5" font-weight="500" text-anchor="middle">filmcurv</text>
+        <rect class="bx-m" x="158" y="24" width="84" height="40" rx="3"/><text x="200" y="48.5" font-size="12.5" font-weight="500" text-anchor="middle">llap</text>
+        <rect class="bx-m" x="314" y="24" width="84" height="40" rx="3"/><text x="356" y="48.5" font-size="12.5" font-weight="500" text-anchor="middle">grade</text>
+        <path class="ln" d="M86 44H156" marker-end="url(#la)"/><path class="ln" d="M242 44H312" marker-end="url(#la)"/>
+        <path class="ln-d" d="M2 64V124M86 64L74 124M158 64L84 124M242 64L330 124M314 64L340 124M398 64V124"/>
+        <text x="2" y="111" font-size="11" class="t-dim" style="paint-order:stroke;stroke:var(--panel);stroke-width:6px">node layer: what the GPU runs</text>
+        <rect class="nd" style="--i:0" x="2" y="128" width="72" height="28" rx="2"/><text x="38" y="146" font-size="11" text-anchor="middle">main</text>
+        <rect class="nd" style="--i:1" x="84" y="128" width="46" height="28" rx="2"/><text x="107" y="146" font-size="11" text-anchor="middle">curve</text>
+        <rect class="nd" style="--i:2" x="140" y="128" width="56" height="28" rx="2"/><text x="168" y="146" font-size="11" text-anchor="middle">reduce</text>
+        <rect class="nd" style="--i:3" x="140" y="168" width="56" height="28" rx="2"/><text x="168" y="186" font-size="11" text-anchor="middle">reduce</text>
+        <rect class="nd" style="--i:4" x="140" y="208" width="56" height="28" rx="2"/><text x="168" y="226" font-size="11" text-anchor="middle">reduce</text>
+        <rect class="nd" style="--i:5" x="206" y="208" width="64" height="28" rx="2"/><text x="238" y="226" font-size="11" text-anchor="middle">assemble</text>
+        <rect class="nd" style="--i:6" x="206" y="168" width="64" height="28" rx="2"/><text x="238" y="186" font-size="11" text-anchor="middle">assemble</text>
+        <rect class="nd" style="--i:7" x="206" y="128" width="64" height="28" rx="2"/><text x="238" y="146" font-size="11" text-anchor="middle">assemble</text>
+        <rect class="nd" style="--i:8" x="280" y="128" width="50" height="28" rx="2"/><text x="305" y="146" font-size="11" text-anchor="middle">colour</text>
+        <rect class="nd" style="--i:9" x="340" y="128" width="58" height="28" rx="2"/><text x="369" y="146" font-size="11" text-anchor="middle">main</text>
+        <path class="ln" d="M74 142H82" marker-end="url(#la)"/><path class="ln" d="M130 142H138" marker-end="url(#la)"/>
+        <path class="ln" d="M168 156V166" marker-end="url(#la)"/><path class="ln" d="M168 196V206" marker-end="url(#la)"/>
+        <path class="ln" d="M196 222H204" marker-end="url(#la)"/><path class="ln" d="M196 182H204" marker-end="url(#la)"/><path class="ln" d="M196 142H204" marker-end="url(#la)"/>
+        <path class="ln" d="M238 208V198" marker-end="url(#la)"/><path class="ln" d="M238 168V158" marker-end="url(#la)"/>
+        <path class="ln" d="M270 142H278" marker-end="url(#la)"/><path class="ln" d="M330 142H338" marker-end="url(#la)"/>
+        <path class="ln" d="M78 142V246H305V158" stroke-dasharray="2 3" marker-end="url(#la)"/>
+        <text x="134" y="186" font-size="10.5" text-anchor="end" class="t-dim">1/4 size</text>
+        <text x="134" y="226" font-size="10.5" text-anchor="end" class="t-dim">1/8 size</text>
+      </svg>
+    </div>
+    <figcaption>Nodes light up in the order they execute. <code>llap</code> writes tone-curved copies of the image, shrinks them level by level (<code>reduce</code>, up to 12 levels), rebuilds the picture from coarse to fine (<code>assemble</code>), then puts the colour back using the original input (dotted line).</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>The number of nodes can depend on the image size, which is why nodes are only created once sizes are known. A graph may hold up to 100 modules and a few thousand nodes.</p>
+    <p>Modules and nodes talk through <strong>connectors</strong>. A connector has a name, a direction, a channel layout and a pixel format, for example <code>output:write:rgba:f16</code>. A <code>*</code> means "whatever the other side has", so a module like <code>exposure</code> works on any buffer.</p>
+    <p>Names such as <code>colour</code>, <code>rgba</code> or <code>f16</code> are <strong>tokens</strong>: up to eight characters packed into one 64-bit integer, so comparing two names is a single integer comparison. That is why no module, connector or parameter in vkdt has a name longer than eight characters.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── 4 · run ───────────────────────── -->
+<section id="run">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/graph.c · dt_graph_run()</p>
+    <h2>What one run of the graph does</h2>
+  </div>
+  <div class="prose">
+    <p>Everything goes through one function, <code>dt_graph_run</code>. It takes a set of flags that say which stages are needed, so a small change skips the expensive setup. Choose what just happened and watch which stages run.</p>
+  </div>
+
+  <figure class="fig" id="fig-run">
+    <div class="fig-bar">
+      <span class="fig-title">dt_graph_run · eight stages</span>
+      <div class="transport">
+        <button type="button" data-act="prev" aria-label="Previous stage"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button>
+        <button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button>
+        <button type="button" data-act="next" aria-label="Next stage"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button>
+        <span class="count" data-count>8 / 8</span>
+      </div>
+    </div>
+    <div class="fig-body">
+      <div class="seg" role="group" aria-label="What happened" style="margin-bottom:16px">
+        <button type="button" data-sc="all" aria-pressed="true">opened an image, or rewired the graph</button>
+        <button type="button" data-sc="param" aria-pressed="false">moved a slider</button>
+        <button type="button" data-sc="frame" aria-pressed="false">next video frame</button>
+      </div>
+      <div class="runwrap">
+        <div class="run-top">
+          <svg class="runfig" viewBox="0 0 420 210" role="img" aria-label="Four modules in a row: i-raw, demosaic, colour, display. Sizes travel forward, then backward; nodes are created; memory is planned; the source is uploaded; all nodes run; the display result is handed to the GUI.">
+            <defs><marker id="r-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--dim)"/></marker><marker id="r-gpu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--gpu)"/></marker><marker id="r-cpu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--cpu)"/></marker></defs>
+            <rect class="bx-m" x="4" y="62" width="64" height="46" rx="3"/><text x="36" y="82" font-size="11.5" font-weight="500" text-anchor="middle">i-raw</text><rect class="bx-m" x="120" y="62" width="64" height="46" rx="3"/><text x="152" y="82" font-size="11.5" font-weight="500" text-anchor="middle">demosaic</text><rect class="bx-m" x="236" y="62" width="64" height="46" rx="3"/><text x="268" y="82" font-size="11.5" font-weight="500" text-anchor="middle">colour</text><rect class="bx-m" x="352" y="62" width="64" height="46" rx="3"/><text x="384" y="82" font-size="11.5" font-weight="500" text-anchor="middle">display</text>
+            <path class="ln" d="M68 87H118" marker-end="url(#r-dim)"/><path class="ln" d="M184 87H234" marker-end="url(#r-dim)"/><path class="ln" d="M300 87H350" marker-end="url(#r-dim)"/>
+            <text x="36" y="122" font-size="10.5" text-anchor="middle" class="t-dim">source</text><text x="384" y="122" font-size="10.5" text-anchor="middle" class="t-dim">sink</text>
+            <g class="g" data-s="1"><circle class="hl" cx="8" cy="64" r="8" style="fill:var(--panel);stroke-width:1.3" stroke="var(--dim)"/><text class="hl" x="8" y="67.6" font-size="10" text-anchor="middle">1</text><circle class="hl" cx="124" cy="64" r="8" style="fill:var(--panel);stroke-width:1.3" stroke="var(--dim)"/><text class="hl" x="124" y="67.6" font-size="10" text-anchor="middle">2</text><circle class="hl" cx="240" cy="64" r="8" style="fill:var(--panel);stroke-width:1.3" stroke="var(--dim)"/><text class="hl" x="240" y="67.6" font-size="10" text-anchor="middle">3</text><circle class="hl" cx="356" cy="64" r="8" style="fill:var(--panel);stroke-width:1.3" stroke="var(--dim)"/><text class="hl" x="356" y="67.6" font-size="10" text-anchor="middle">4</text></g>
+            <g class="g" data-s="2"><text class="hl t-dim" x="210" y="45" font-size="10.5" text-anchor="middle">sizes forward: what each module can deliver →</text><text class="hl t-dim" x="94" y="81" font-size="11" text-anchor="middle">6000 px</text><text class="hl t-dim" x="210" y="81" font-size="11" text-anchor="middle">6000 px</text><text class="hl t-dim" x="326" y="81" font-size="11" text-anchor="middle">6000 px</text></g>
+            <g class="g" data-s="3"><text class="hl t-dim" x="210" y="140" font-size="10.5" text-anchor="middle">← sizes backward: what is actually needed</text><text class="hl" x="94" y="101.5" font-size="11" text-anchor="middle">6000 px</text><text class="hl" x="210" y="101.5" font-size="11" text-anchor="middle">1500 px</text><text class="hl" x="326" y="101.5" font-size="11" text-anchor="middle">1500 px</text></g>
+            <g class="g" data-s="4"><rect class="hl" x="32" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="126" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="137" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="148" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="159" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="170" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="264" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/><rect class="hl" x="380" y="92" width="8" height="8" rx="1" style="fill:var(--panel2)" stroke="var(--dim)"/></g>
+            <g class="g" data-s="5">
+              <text class="t-dim" x="4" y="160" font-size="10.5">one block of GPU memory</text>
+              <rect x="4" y="166" width="412" height="16" rx="2" style="fill:var(--bg);stroke:var(--line)"/>
+              <rect class="hl" x="7" y="169" width="128" height="10" rx="1" style="fill:color-mix(in srgb,var(--gpu) 22%,transparent)" stroke="var(--dim)"/><rect class="hl" x="139" y="169" width="128" height="10" rx="1" style="fill:color-mix(in srgb,var(--gpu) 22%,transparent)" stroke="var(--dim)"/><rect class="hl" x="271" y="169" width="34" height="10" rx="1" style="fill:color-mix(in srgb,var(--gpu) 22%,transparent)" stroke="var(--dim)"/><rect class="hl" x="309" y="169" width="34" height="10" rx="1" style="fill:color-mix(in srgb,var(--gpu) 22%,transparent)" stroke="var(--dim)"/>
+            </g>
+            <g class="g cpu" data-s="6">
+              <text class="hl t-cpu" x="4" y="14" font-size="11">raw file, decoded on the CPU</text>
+              <path class="hl arr" d="M36 22V59" style="fill:none;stroke-width:1.6" stroke="var(--cpu)" marker-end="url(#r-cpu)"/>
+            </g>
+            <g class="g" data-s="7"><path class="flow" d="M68 87H118"/><path class="flow" d="M184 87H234"/><path class="flow" d="M300 87H350"/><rect class="hl" x="4" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="120" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="236" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="352" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/>
+              <text class="hl t-dim" x="210" y="202" font-size="10.5" text-anchor="middle">one command buffer: bind shader, bind images, dispatch, per node</text>
+            </g>
+            <g class="g" data-s="8">
+              <text class="hl t-dim" x="416" y="14" font-size="11" text-anchor="end">image the GUI draws</text>
+              <path class="hl arr" d="M384 59V22" style="fill:none;stroke-width:1.6" stroke="var(--dim)" marker-end="url(#r-dim)"/>
+            </g>
+          </svg>
+          <p class="flags" id="run-flags"></p>
+        </div>
+        <ol class="steps" id="run-steps">
+          <li data-s="1"><button type="button"><span class="hd">Sort <code>always</code></span><span class="tx">Walk backwards from the sinks, depth first. The result is an order in which every module comes after the ones it reads from.</span></button></li>
+          <li data-s="2"><button type="button"><span class="hd">Sizes, forward <code>roi</code></span><span class="tx">From source to sink, each module announces the full size of its output (<code>modify_roi_out</code>).</span></button></li>
+          <li data-s="3"><button type="button"><span class="hd">Sizes, backward <code>roi</code></span><span class="tx">From sink to source, each module says what it needs from its input (<code>modify_roi_in</code>). The display only asks for what fits on screen, so <code>demosaic</code> picks a cheaper half-size kernel and everything after it works on a small buffer.</span></button></li>
+          <li data-s="4"><button type="button"><span class="hd">Create nodes <code>create_nodes</code></span><span class="tx">Old nodes are discarded and every module builds its nodes for these sizes.</span></button></li>
+          <li data-s="5"><button type="button"><span class="hd">Plan memory <code>alloc</code></span><span class="tx">Every node output gets a place in GPU memory. Shader pipelines and descriptor sets are created.</span></button></li>
+          <li data-s="6"><button type="button"><span class="hd">Upload sources <code>upload_source</code></span><span class="tx"><code>read_source</code> runs on the CPU and fills a staging buffer, for example with decoded raw data.</span></button></li>
+          <li data-s="7"><button type="button"><span class="hd">Record and submit <code>record_cmd_buf</code></span><span class="tx">Parameters are copied into the uniform buffer. One command buffer is recorded with every node in order and handed to the GPU in a single submit.</span></button></li>
+          <li data-s="8"><button type="button"><span class="hd">Hand over <code>download_sink</code></span><span class="tx">A display sink is copied GPU to GPU into an image the interface can draw. A file sink is downloaded and passed to <code>write_sink</code>.</span></button></li>
+        </ol>
+      </div>
+    </div>
+    <figcaption>The sizes are an example: a raw file 6000 pixels wide, shown in a darkroom 1500 pixels wide. Crossed-out stages are skipped and their results from the previous run are reused.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>Note what does <em>not</em> happen when you move a slider: nothing is rebuilt and nothing is cached per module. The parameters are rewritten and the whole graph runs again on the GPU. That is fast enough to be the only strategy vkdt needs.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── 5 · memory ───────────────────────── -->
+<section id="memory">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/alloc.c · src/pipe/graph-run-nodes-allocate.h</p>
+    <h2>One block of memory, planned in advance</h2>
+  </div>
+  <div class="prose">
+    <p>A 24-megapixel image stored as four 16-bit float channels takes about 190 MB. A graph with dozens of nodes cannot give every output its own buffer. So vkdt plans: it walks the nodes in execution order, puts each output into the first free gap that fits, and releases a buffer as soon as its last reader has run.</p>
+  </div>
+
+  <figure class="fig" id="fig-mem">
+    <div class="fig-bar">
+      <span class="fig-title">planning the buffers, node by node</span>
+      <div class="transport">
+        <button type="button" data-act="prev" aria-label="Previous node"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button>
+        <button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button>
+        <button type="button" data-act="next" aria-label="Next node"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button>
+        <span class="count" data-count></span>
+      </div>
+    </div>
+    <div class="fig-body">
+      <div class="mem">
+        <ol class="mem-nodes" id="mem-nodes" aria-label="Nodes in execution order"></ol>
+        <div>
+          <div class="heap-lab"><span>offset 0</span><span id="mem-cap"></span></div>
+          <div class="heap" id="heap"></div>
+        </div>
+        <p class="mem-say" id="mem-say" aria-live="polite"></p>
+        <p class="mem-stat"><span>every buffer side by side: <b id="mem-sum"></b></span><span class="good">with reuse: <b id="mem-peak"></b></span></p>
+      </div>
+    </div>
+    <figcaption>Sizes are illustrative: a sensor mosaic counts as one unit, a full-colour buffer as four. Amber blocks belong to sources and sinks and are never recycled.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>The walk only computes offsets. When it is finished, vkdt makes one <code>vkAllocateMemory</code> call per kind of memory and binds every image at its offset. Nothing is allocated while frames are running.</p>
+    <p>Some buffers are protected from recycling: sources, sinks, and anything a later frame has to read again.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── 6 · module ───────────────────────── -->
+<section id="module">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/modules/exposure/</p>
+    <h2>Inside a module</h2>
+  </div>
+  <div class="prose">
+    <p>A module is a folder. The simplest ones contain no C code at all. <code>exposure</code> is three one-line text files and a shader. Drag the slider on the right to follow one value from the interface into the shader.</p>
+  </div>
+
+  <figure class="fig" id="fig-mod">
+    <div class="fig-bar"><span class="fig-title">the exposure module: its files, and what vkdt makes of them</span></div>
+    <div class="fig-body">
+      <div class="anat">
+        <div class="files">
+          <div class="file" id="f-ui"><div class="fn">params.ui <span>parameter : widget : min : max</span></div><pre>exposure:slider:-10:10</pre></div>
+          <div class="file" id="f-par"><div class="fn">params <span>name : type : count : default</span></div><pre>exposure:float:1:0.0</pre></div>
+          <div class="file" id="f-con"><div class="fn">connectors <span>name : type : channels : format</span></div><pre>input:read:*:*
+output:write:*:*</pre></div>
+          <div class="file" id="f-sh"><div class="fn">main.comp <span>the compute shader, trimmed</span></div><pre>uniform params_t
+{
+  float ev;
+} params;
+uniform sampler2D img_in;
+uniform writeonly image2D img_out;
+
+void main()
+{
+  ivec2 ipos = ivec2(gl_GlobalInvocationID);
+  vec3 rgb = texelFetch(img_in, ipos, 0).rgb
+           * <mark>pow(2.0, params.ev)</mark>;
+  imageStore(img_out, ipos, vec4(rgb, 1));
+}</pre></div>
+        </div>
+        <div class="made">
+          <div class="piece" id="p-ui"><div class="fn">a slider in the darkroom <span>from params.ui</span></div>
+            <div class="pb"><label for="mev">exposure</label><div class="row"><input type="range" id="mev" min="-10" max="10" step="0.1" value="1"><output id="mev-o" for="mev">1.0</output></div></div></div>
+          <div class="piece" id="p-par"><div class="fn">one float in the uniform buffer <span>from params</span></div>
+            <div class="pb"><div>params_t { ev = <b class="num inl" id="mev-u">1.0</b> }</div></div></div>
+          <div class="piece" id="p-con"><div class="fn">a node with two ports <span>from connectors</span></div>
+            <div class="pb">
+              <svg viewBox="0 0 300 46" role="img" aria-label="One node, exposure main, with an input port and an output port" style="max-width:340px;margin:0">
+                <path class="ln" d="M4 23H70M230 23H296"/>
+                <rect class="bx-m" x="70" y="5" width="160" height="36" rx="3"/>
+                <circle cx="70" cy="23" r="4.5" style="fill:var(--gpu)"/><circle cx="230" cy="23" r="4.5" style="fill:var(--gpu)"/>
+                <text x="150" y="27" font-size="12" text-anchor="middle">exposure / main</text>
+                <text x="4" y="14" font-size="10" class="t-dim">input</text><text x="296" y="14" font-size="10" class="t-dim" text-anchor="end">output</text>
+              </svg></div></div>
+          <div class="piece" id="p-sh"><div class="fn">every pixel, on the GPU <span>from main.comp</span></div>
+            <div class="pb">
+              <div>rgb × 2^ev = rgb × <b class="num inl" id="mev-m">2.00</b></div>
+              <span class="ramp-lab">input</span><div class="ramp" id="ramp-in"></div>
+              <span class="ramp-lab">output</span><div class="ramp" id="ramp-out"></div>
+            </div></div>
+        </div>
+      </div>
+    </div>
+    <figcaption>The module contains no interface code. Parameters reach the shader by position, not by name: the first line of <code>params</code> becomes the first field of <code>params_t</code>, which is why the file says <code>exposure</code> and the shader says <code>ev</code>.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>When a module needs more than one shader, or has to touch files, it adds a <code>main.c</code> that exports callbacks. Every one of them is optional, and roughly one module in five gets by without any.</p>
+  </div>
+  <div class="scroll-x">
+    <table class="tbl">
+      <thead><tr><th>callback</th><th>called when</th><th>typical use</th></tr></thead>
+      <tbody>
+        <tr><td><code>modify_roi_out</code></td><td>sizes travel forward</td><td class="dimc">announce the output size and image metadata; an input module reads the file header here</td></tr>
+        <tr><td><code>modify_roi_in</code></td><td>sizes travel backward</td><td class="dimc">ask for a larger, smaller or full-size input</td></tr>
+        <tr><td><code>create_nodes</code></td><td>sizes are settled</td><td class="dimc">build the module's own node graph: pyramids, iterations, several shaders</td></tr>
+        <tr><td><code>commit_params</code></td><td>before every run</td><td class="dimc">turn interface values into what the shader needs, such as a colour temperature into a matrix</td></tr>
+        <tr><td><code>check_params</code></td><td>a parameter changed</td><td class="dimc">say whether a re-run is enough or the graph has to be rebuilt</td></tr>
+        <tr><td><code>read_source</code></td><td>sources are uploaded</td><td class="dimc">decode a file on the CPU into the staging buffer</td></tr>
+        <tr><td><code>write_sink</code></td><td>sinks are downloaded</td><td class="dimc">encode the pixels and write a jpg, exr or video frame</td></tr>
+        <tr><td><code>animate</code></td><td>each frame, before the run</td><td class="dimc">advance a simulation or a time-dependent parameter</td></tr>
+        <tr><td><code>input</code> · <code>ui_callback</code></td><td>the module grabs the mouse, or its button is pressed</td><td class="dimc">interactive modules such as drawing masks</td></tr>
+        <tr><td><code>audio</code></td><td>the sound backend wants samples</td><td class="dimc">video inputs hand over their audio track</td></tr>
+        <tr><td><code>init</code> · <code>cleanup</code></td><td>an instance is created or removed</td><td class="dimc">allocate and free per-instance state</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>The build compiles every shader to SPIR-V (<code>main.comp.spv</code>) and every <code>main.c</code> to <code>lib&lt;name&gt;.so</code>. At startup vkdt scans the modules directory, reads the text files and loads the libraries. A new module is a new folder; nothing else has to be registered.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── 7 · time ───────────────────────── -->
+<section id="time">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/anim.h · src/pipe/connector.h</p>
+    <h2>Frames, keyframes and feedback</h2>
+  </div>
+  <div class="prose">
+    <p>A graph has a frame count and a frame rate, stored as <code>frames:</code> and <code>fps:</code> lines in the <code>.cfg</code>. For video, timelapses and animated parameters, the interface advances the frame number and runs the graph again. Only the command buffer is re-recorded; nodes and memory stay as they are.</p>
+    <p><strong>Keyframes</strong> store a parameter value at a frame number. Before each run, vkdt interpolates between the two neighbouring keyframes: linearly, with ease in or out, smoothly, or as a step.</p>
+    <p><strong>Feedback connectors</strong> carry a module's output from the previous frame into the current one. This is how frame accumulation, temporal denoising and simulations work. A feedback buffer exists twice. Each frame writes one copy and reads the other, then they swap.</p>
+  </div>
+
+  <figure class="fig" id="fig-fb">
+    <div class="fig-bar"><span class="fig-title">a feedback buffer across frames</span>
+      <div class="transport">
+        <button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button>
+        <button type="button" data-act="next" aria-label="Next frame"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button>
+      </div>
+    </div>
+    <div class="fig-body">
+      <svg class="fb" data-f="0" viewBox="0 0 400 180" role="img" aria-label="A node reads the new frame and the copy of its own output from the previous frame, and writes the other copy. Next frame the two copies swap roles.">
+        <defs><marker id="f-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--dim)"/></marker><marker id="f-gpu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--gpu)"/></marker><marker id="f-st" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--steel)"/></marker></defs>
+        <text x="394" y="14" font-size="12" text-anchor="end" id="fb-frame">frame 12</text>
+        <rect class="bx-m" x="6" y="26" width="88" height="42" rx="3"/><text x="50" y="51.5" font-size="12" font-weight="500" text-anchor="middle">new frame</text>
+        <rect class="bx-m" x="156" y="26" width="88" height="42" rx="3"/><text x="200" y="51.5" font-size="12" font-weight="500" text-anchor="middle">accum</text>
+        <rect class="bx-m" x="306" y="26" width="88" height="42" rx="3"/><text x="350" y="51.5" font-size="12" font-weight="500" text-anchor="middle">display</text>
+        <path class="ln" d="M94 47H154" marker-end="url(#f-dim)"/><path class="ln" d="M244 47H304" marker-end="url(#f-dim)"/>
+        <rect class="slot s0" x="80" y="134" width="100" height="38" rx="3"/><text x="130" y="157.5" font-size="12" text-anchor="middle">copy 0</text>
+        <rect class="slot s1" x="220" y="134" width="100" height="38" rx="3"/><text x="270" y="157.5" font-size="12" text-anchor="middle">copy 1</text>
+        <g class="w w0"><path d="M178 68L137 131" style="fill:none;stroke:var(--gpu);stroke-width:2" marker-end="url(#f-gpu)"/><text x="146" y="100" font-size="11" text-anchor="end" class="t-gpu">writes</text></g>
+        <g class="r r0"><path d="M160 134L190 71" style="fill:none;stroke:var(--steel);stroke-width:1.6;stroke-dasharray:4 4" marker-end="url(#f-st)"/><text x="146" y="100" font-size="11" text-anchor="end" style="fill:var(--steel)">reads last frame</text></g>
+        <g class="w w1"><path d="M222 68L263 131" style="fill:none;stroke:var(--gpu);stroke-width:2" marker-end="url(#f-gpu)"/><text x="254" y="100" font-size="11" class="t-gpu">writes</text></g>
+        <g class="r r1"><path d="M240 134L210 71" style="fill:none;stroke:var(--steel);stroke-width:1.6;stroke-dasharray:4 4" marker-end="url(#f-st)"/><text x="254" y="100" font-size="11" style="fill:var(--steel)">reads last frame</text></g>
+      </svg>
+    </div>
+    <figcaption><code>accum</code> blends each new frame into a running result. The same double buffering is used for uniforms and command buffers, so one frame can be recorded while the previous one is still on the GPU.</figcaption>
+  </figure>
+</section>
+
+<!-- ───────────────────────── 8 · app ───────────────────────── -->
+<section id="app">
+  <div class="sec-head">
+    <p class="eyebrow">src/gui/main.c</p>
+    <h2>The application around the graph</h2>
+  </div>
+  <div class="prose">
+    <p>The GUI is a plain loop on the main thread. It never waits for the image. The graph is submitted to the GPU's compute queue and the loop carries on drawing the interface; the finished picture appears a frame or two later.</p>
+  </div>
+
+  <figure class="fig" id="fig-loop">
+    <div class="fig-bar"><span class="fig-title">one turn of the main loop, and the graph beside it</span>
+      <div class="transport">
+        <button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button>
+        <button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button>
+      </div>
+    </div>
+    <div class="fig-body">
+      <svg class="loop" viewBox="0 0 400 256" role="img" aria-label="The main thread loops through four steps: wait for input, let the view start a graph run, build the interface, draw and present. The graph run happens on the GPU compute queue beside the loop, and its result is copied into a display image that a later frame draws.">
+        <defs><marker id="l-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--dim)"/></marker><marker id="l-gpu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--gpu)"/></marker></defs>
+        <text x="14" y="13" font-size="11" class="t-dim">main thread</text>
+        <text x="236" y="13" font-size="11" class="t-gpu">GPU, compute queue</text>
+        <rect class="st" data-st="0" x="14" y="22" width="170" height="38" rx="3"/><text x="99" y="45" font-size="12" text-anchor="middle">wait for input</text>
+        <rect class="st" data-st="1" x="14" y="84" width="170" height="38" rx="3"/><text x="99" y="107" font-size="12" text-anchor="middle">view: dt_graph_run()</text>
+        <rect class="st" data-st="2" x="14" y="146" width="170" height="38" rx="3"/><text x="99" y="169" font-size="12" text-anchor="middle">build the interface</text>
+        <rect class="st" data-st="3" x="14" y="208" width="170" height="38" rx="3"/><text x="99" y="231" font-size="12" text-anchor="middle">draw, then present</text>
+        <path class="a" d="M99 60V82" marker-end="url(#l-dim)"/><path class="a" d="M99 122V144" marker-end="url(#l-dim)"/><path class="a" d="M99 184V206" marker-end="url(#l-dim)"/>
+        <path class="a" d="M14 227H4V41H12" marker-end="url(#l-dim)"/>
+        <rect class="gq" data-gq="0" x="236" y="84" width="158" height="38" rx="3"/><text x="315" y="107" font-size="12" text-anchor="middle">run every node</text>
+        <rect class="gq" data-gq="1" x="236" y="146" width="158" height="38" rx="3"/><text x="315" y="169" font-size="11.5" text-anchor="middle">copy to display image</text>
+        <path class="a" data-a="sub" d="M184 103H234" marker-end="url(#l-dim)"/>
+        <text x="210" y="82" font-size="10.5" text-anchor="middle" class="t-dim">submit,</text><text x="210" y="95" font-size="10.5" text-anchor="middle" class="t-dim">no wait</text>
+        <path class="a" data-a="cp" d="M315 122V144" marker-end="url(#l-dim)"/>
+        <path class="a" data-a="smp" d="M315 184V227H186" marker-end="url(#l-dim)"/>
+        <text x="292" y="244" font-size="10.5" text-anchor="middle" class="t-dim">sampled as a texture</text>
+      </svg>
+    </div>
+    <figcaption>The display image is triple-buffered, so the interface always has a finished picture to draw while newer ones are in flight. The copy is GPU to GPU; pixels are never read back to the CPU for display.</figcaption>
+  </figure>
+
+  <dl class="points">
+    <div><dt>Four views, one graph</dt><dd><code>files</code> browses and imports, <code>lighttable</code> shows thumbnails, <code>darkroom</code> edits one image, <code>nodes</code> shows the same graph as boxes and wires. Darkroom and node editor share one graph object, so you can switch freely.</dd></div>
+    <div><dt>Widgets come from text</dt><dd>The darkroom reads each module's <code>params.ui</code> and draws the matching widget: slider, combo box, colour wheel, crop and perspective tools, about twenty widget types in all.</dd></div>
+    <div><dt>Colour-managed last</dt><dd>A display sink expects linear rec2020. The interface's own fragment shader converts to the monitor's profile at the very end, for the image and the widgets alike.</dd></div>
+    <div><dt>Thumbnails are graphs too</dt><dd>Two background workers each own a graph on a spare GPU queue. They run an image's <code>.cfg</code> into the <code>o-bc1</code> module and store a GPU-compressed file that lighttable can upload as it is.</dd></div>
+    <div><dt>One graph, one thread</dt><dd>A graph is never shared between threads. A pool with one worker per CPU core handles thumbnails, exports, file copies and video decoding.</dd></div>
+    <div><dt>Headless is the same code</dt><dd><code>vkdt-cli -g photo.cfg --format o-jpg</code> sets up Vulkan without a window, loads the same graph and swaps the display sink for a file output.</dd></div>
+  </dl>
+</section>
+
+<!-- ───────────────────────── 9 · disk ───────────────────────── -->
+<section id="disk">
+  <div class="sec-head">
+    <p class="eyebrow">src/db/</p>
+    <h2>Your folder is the database</h2>
+  </div>
+  <div class="prose">
+    <p>There is no library file and no import step. vkdt opens a directory and works with what is there. Originals are never written to and never moved.</p>
+  </div>
+  <pre class="tree" aria-label="Files vkdt reads and writes"><span class="d">~/Pictures/harbour/</span>              <span class="n">any folder you point vkdt at</span>
+├─ IMG_0412.CR2                  <span class="n">your original, never modified</span>
+├─ <span class="o">IMG_0412.CR2.cfg</span>              <span class="n">sidecar: the complete graph for this image</span>
+├─ <span class="o">IMG_0412.CR2_01.cfg</span>           <span class="n">a duplicate: a second edit of the same file</span>
+└─ <span class="o">vkdt.db</span>                       <span class="n">ratings, labels, sort order and filter for this folder</span>
+
+<span class="d">~/.config/vkdt/</span>
+├─ <span class="o">config.rc</span>                     <span class="n">settings</span>
+├─ <span class="o">presets/*.pst</span>                 <span class="n">your presets</span>
+└─ <span class="o">tags/sunset/</span>&lt;hash&gt;.cfg        <span class="n">symlinks to sidecars: a tag is a folder too</span>
+
+<span class="d">~/.cache/vkdt/</span>
+└─ <span class="g">&lt;hash&gt;.bc1</span>                    <span class="n">thumbnails, stored GPU-compressed</span></pre>
+  <div class="prose">
+    <p>An image without a sidecar gets a default graph. vkdt picks the input module from the file extension and starts from <code>bin/default-darkroom.i-raw</code>, or the matching file for jpg, video and the other inputs.</p>
+    <p>Ratings and labels belong to the folder, not to the image. A tag is a directory of symlinks with its own <code>vkdt.db</code>, so you can open it like any folder and rate the same pictures differently there.</p>
+    <p>A <strong>preset</strong> (<code>.pst</code>) uses the same line format as a <code>.cfg</code> but is a fragment: its lines are applied on top of the current graph, adding modules, rewiring and setting parameters.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────── 10 · map ───────────────────────── -->
+<section id="map">
+  <div class="sec-head">
+    <p class="eyebrow">where to start reading</p>
+    <h2>Source map</h2>
+  </div>
+  <div class="scroll-x">
+    <table class="tbl">
+      <thead><tr><th>path</th><th>what lives there</th><th>good first file</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/pipe/</code></td><td>the graph engine</td><td class="dimc"><code>graph.c</code> for <code>dt_graph_run</code>, then <code>graph-run-modules.h</code> for sizes and node creation</td></tr>
+        <tr><td><code>src/pipe/modules/</code></td><td>all image operations</td><td class="dimc"><code>exposure/</code> first, <code>llap/main.c</code> for a multi-node module, <code>api.h</code> for the helpers modules use</td></tr>
+        <tr><td><code>src/pipe/global.c</code></td><td>module discovery and loading</td><td class="dimc">parsers for <code>params</code>, <code>params.ui</code> and <code>connectors</code></td></tr>
+        <tr><td><code>src/pipe/graph-io.c</code></td><td>reading and writing <code>.cfg</code></td><td class="dimc"><code>dt_graph_read_config_line</code> lists every line type</td></tr>
+        <tr><td><code>src/pipe/alloc.c</code></td><td>the memory planner</td><td class="dimc">short and self-contained</td></tr>
+        <tr><td><code>src/qvk/</code></td><td>Vulkan device, queues, swapchain</td><td class="dimc"><code>qvk.c</code></td></tr>
+        <tr><td><code>src/gui/</code></td><td>window, views, widgets</td><td class="dimc"><code>main.c</code> for the loop, <code>render_darkroom.c</code> for <code>darkroom_process</code>, <code>graph-display.c</code> for the hand-over</td></tr>
+        <tr><td><code>src/db/</code></td><td>folders, ratings, thumbnails</td><td class="dimc"><code>db.c</code>, <code>thumbnails.c</code></td></tr>
+        <tr><td><code>src/core/</code></td><td>threads, logging, helpers</td><td class="dimc"><code>threads.c</code></td></tr>
+        <tr><td><code>src/cli/</code> · <code>src/fit/</code></td><td>the two command-line programs</td><td class="dimc">one <code>main.c</code> / <code>fit.c</code> each</td></tr>
+        <tr><td><code>bin/</code></td><td>what ships next to the binary</td><td class="dimc">default graphs, presets, <code>style.txt</code>, key bindings</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:22px">Words the code uses</h3>
+  <dl class="gloss">
+    <div><dt>module</dt><dd>One image operation as the user sees it: a name, an instance, connectors and parameters.</dd></div>
+    <div><dt>node</dt><dd>One shader run. Modules create nodes; the GPU only ever sees nodes.</dd></div>
+    <div><dt>connector</dt><dd>An input or output of a module or node, with channels and a pixel format.</dd></div>
+    <div><dt>source · sink</dt><dd>Connectors where data enters from or leaves to the CPU: files, the display.</dd></div>
+    <div><dt>roi</dt><dd>Region of interest. The size a buffer could have (<code>full_wd</code>, <code>full_ht</code>) and the size actually computed (<code>wd</code>, <code>ht</code>).</dd></div>
+    <div><dt>token</dt><dd>A name of up to eight characters stored in a 64-bit integer.</dd></div>
+    <div><dt>feedback</dt><dd>A connection that delivers last frame's output to this frame.</dd></div>
+    <div><dt>dspy</dt><dd>Short for display: the sinks named <code>main</code>, <code>hist</code> and so on, and the images the interface draws from them.</dd></div>
+  </dl>
+</section>
+
+<p class="foot">Written from the source at commit <code>af70c5d</code>. Paths refer to this repository. The interactive figures simplify on purpose; where a figure and the code disagree, the code is right.</p>
+
+</div>
+<script>
+/* toy sensor simulation: a 144x96 "raw" walking through the default raw graph.
+   everything here is an illustration, not vkdt's actual maths. */
+const SIM = (() => {
+  const W = 192, H = 128, N = W * H;
+  // deterministic noise
+  let seed = 1234567;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const gauss = () => { let u = 0; for (let i = 0; i < 4; i++) u += rnd(); return (u - 2) * 1.732; };
+  const NOISE = new Float32Array(N); for (let i = 0; i < N; i++) NOISE[i] = gauss();
+  const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+  const mix = (a, b, t) => a + (b - a) * t;
+  const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+  // scene-referred linear rgb, horizon tilted by a couple of degrees
+  function scene(px, py, out) {
+    const tilt = 0.055;
+    const x = px / W, y0 = py / H;
+    const y = y0 + (x - 0.5) * tilt * (W / H);
+    const hz = 0.60;
+    let r, g, b;
+    const sx = 0.66, sy = 0.50;
+    const dx = (x - sx) * (W / H), dy = (y - sy);
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (y < hz) {
+      const t = clamp(y / hz, 0, 1);          // 0 top .. 1 horizon
+      r = mix(0.018, 0.62, Math.pow(t, 3.0));
+      g = mix(0.040, 0.26, Math.pow(t, 2.6));
+      b = mix(0.150, 0.13, Math.pow(t, 1.4));
+      const glow = Math.exp(-d * 9.0);
+      r += 2.2 * glow; g += 1.2 * glow; b += 0.42 * glow;
+      const R = 0.075, limb = d < R ? 0.45 + 0.55 * Math.sqrt(1 - (d / R) * (d / R)) : 0;
+      const disc = (1 - sstep(R - 0.008, R, d)) * limb;
+      r += 30 * disc; g += 22 * disc; b += 11 * disc;
+      // thin cloud bands
+      const c = 0.5 + 0.5 * Math.sin(x * 9.0 + Math.sin(y * 31) * 0.6);
+      const band = Math.exp(-Math.pow((y - 0.33 - 0.03 * Math.sin(x * 5.0)) / 0.022, 2)) * c
+                 + Math.exp(-Math.pow((y - 0.20 - 0.02 * Math.sin(x * 7.0 + 1.0)) / 0.016, 2)) * (1 - c) * 0.7;
+      r += 0.30 * band; g += 0.13 * band; b += 0.09 * band;
+    } else {
+      const t = clamp((y - hz) / (1 - hz), 0, 1);
+      r = mix(0.16, 0.008, Math.pow(t, 0.55));
+      g = mix(0.085, 0.012, Math.pow(t, 0.55));
+      b = mix(0.075, 0.028, Math.pow(t, 0.55));
+      const rx = Math.abs(x - sx) * (W / H);
+      const ripple = 0.55 + 0.45 * Math.sin(y * 150 + Math.sin(x * 20) * 2.0);
+      const path = Math.exp(-rx * rx / (0.0025 + 0.03 * t)) * ripple * (1 - 0.7 * t);
+      r += 3.0 * path; g += 1.7 * path; b += 0.5 * path;
+    }
+    // two ridges
+    const ridge = (base, amp, f, ph) => base - amp * (0.6 * Math.sin(x * f + ph) + 0.4 * Math.sin(x * f * 2.3 + ph * 1.7));
+    const r1 = ridge(0.545, 0.050, 5.0, 0.4), r2 = ridge(0.585, 0.035, 9.0, 2.1);
+    if (y > r1 && y < hz + 0.01) { const k = 0.80; r = mix(r, 0.085, k); g = mix(g, 0.065, k); b = mix(b, 0.090, k); }
+    if (y > r2 && y < hz + 0.015) { r = 0.020; g = 0.022; b = 0.034; }
+    out[0] = r; out[1] = g; out[2] = b;
+  }
+
+  const CAM = [0.52, 1.0, 0.66];          // sensor sensitivity: what white balance later undoes
+  const cfa = (x, y) => (y & 1) ? ((x & 1) ? 2 : 1) : ((x & 1) ? 1 : 0);   // rggb
+  const SENS = 0.42;                       // in-camera exposure
+  const NA = 0.00012, NB = 0.0045;         // gaussian + poissonian noise, like a noise profile
+
+  const truth = new Float32Array(N * 3);   // scene rgb
+  { const o = [0, 0, 0]; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { scene(x, y, o); truth.set(o, 3 * (y * W + x)); } }
+
+  // i-raw: noisy clipped mosaic, one value per photosite
+  const raw = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, c = cfa(x, y);
+    const v = truth[3 * i + c] * CAM[c] * SENS;
+    raw[i] = clamp(v + NOISE[i] * Math.sqrt(NA + NB * v), 0, 1);
+  }
+  // denoise: edge-aware average over same-colour photosites
+  const den = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, v = raw[i]; let s = 0, w = 0;
+    const sig = 3.0 * Math.sqrt(NA + NB * v);
+    for (let dy = -6; dy <= 6; dy += 2) for (let dx = -6; dx <= 6; dx += 2) {
+      const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const u = raw[yy * W + xx], dd = (u - v) / sig; const k = Math.exp(-dd * dd * 0.5) * Math.exp(-(dx * dx + dy * dy) / 40);
+      s += k * u; w += k;
+    }
+    // the toy leans on the known clean value so the later stages stay readable
+    den[i] = mix(s / w, Math.min(truth[3 * i + cfa(x, y)] * CAM[cfa(x, y)] * SENS, 1), 0.7);
+  }
+  // hilite: rebuild clipped photosites (the toy cheats and peeks at a blurred, compressed truth)
+  const hil = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, c = cfa(x, y);
+    if (den[i] < 0.97) { hil[i] = den[i]; continue; }
+    let s = 0, w = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const xx = clamp(x + dx, 0, W - 1), yy = clamp(y + dy, 0, H - 1), j = yy * W + xx;
+      const lum = (truth[3 * j] * CAM[0] + truth[3 * j + 1] * CAM[1] + truth[3 * j + 2] * CAM[2]) / 3;
+      s += lum * SENS * (CAM[c] / ((CAM[0] + CAM[1] + CAM[2]) / 3)) * 0.5 + 0.5 * truth[3 * j + c] * CAM[c] * SENS; w++;
+    }
+    const t = s / w; hil[i] = Math.max(den[i], 1 + 1.6 * Math.log(Math.max(t, 1)));
+  }
+  // demosaic: bilinear fill of the two missing colours per photosite
+  function demosaic(m) {
+    const o = new Float32Array(N * 3);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const s = [0, 0, 0], w = [0, 0, 0];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const c = cfa(xx, yy), k = (dx === 0 && dy === 0) ? 4 : (dx === 0 || dy === 0) ? 2 : 1;
+        s[c] += k * m[yy * W + xx]; w[c] += k;
+      }
+      const i = 3 * (y * W + x); for (let c = 0; c < 3; c++) o[i + c] = s[c] / w[c];
+    }
+    return o;
+  }
+  const dem = demosaic(hil);
+  // crop: rotate the horizon level and trim the edges
+  const crp = new Float32Array(N * 3);
+  { const a = -Math.atan(0.055), ca = Math.cos(a), sa = Math.sin(a), z = 0.90;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const ux = (x - W / 2) * z, uy = (y - H / 2) * z;
+      const fx = clamp(ca * ux - sa * uy + W / 2, 0, W - 1.001), fy = clamp(sa * ux + ca * uy + H / 2, 0, H - 1.001);
+      const x0 = fx | 0, y0 = fy | 0, tx = fx - x0, ty = fy - y0, i = 3 * (y * W + x);
+      for (let c = 0; c < 3; c++) {
+        const p = (xx, yy) => dem[3 * (yy * W + xx) + c];
+        crp[i + c] = mix(mix(p(x0, y0), p(x0 + 1, y0), tx), mix(p(x0, y0 + 1), p(x0 + 1, y0 + 1), tx), ty);
+      }
+    } }
+
+  const lumaOf = (a, i) => 0.25 * a[i] + 0.65 * a[i + 1] + 0.10 * a[i + 2];
+  function blur(src, rad) {         // separable box blur x3 on a scalar field
+    let a = Float32Array.from(src), b = new Float32Array(N);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let y = 0; y < H; y++) { let s = 0; const row = y * W;
+        for (let x = -rad; x <= rad; x++) s += a[row + clamp(x, 0, W - 1)];
+        for (let x = 0; x < W; x++) { b[row + x] = s / (2 * rad + 1); s += a[row + clamp(x + rad + 1, 0, W - 1)] - a[row + clamp(x - rad, 0, W - 1)]; } }
+      for (let x = 0; x < W; x++) { let s = 0;
+        for (let y = -rad; y <= rad; y++) s += b[clamp(y, 0, H - 1) * W + x];
+        for (let y = 0; y < H; y++) { a[y * W + x] = s / (2 * rad + 1); s += b[clamp(y + rad + 1, 0, H - 1) * W + x] - b[clamp(y - rad, 0, H - 1) * W + x]; } }
+    }
+    return a;
+  }
+
+  // everything from `colour` on depends on the exposure slider
+  function develop(ev) {
+    const gain = Math.pow(2, ev) / SENS;
+    const col = new Float32Array(N * 3), flm = new Float32Array(N * 3), lap = new Float32Array(N * 3), grd = new Float32Array(N * 3);
+    for (let i = 0; i < N * 3; i += 3) {
+      let r = crp[i] / CAM[0] * gain, g = crp[i + 1] / CAM[1] * gain, b = crp[i + 2] / CAM[2] * gain;
+      const l = 0.25 * r + 0.65 * g + 0.10 * b, s = 1.12;      // a touch of matrix saturation
+      col[i] = Math.max(0, l + (r - l) * s); col[i + 1] = Math.max(0, l + (g - l) * s); col[i + 2] = Math.max(0, l + (b - l) * s);
+    }
+    // filmcurv: weibull-shaped curve on brightness, colour ratios kept
+    const curve = v => 1 - Math.exp(-Math.pow(v / 0.62, 1.22));
+    for (let i = 0; i < N * 3; i += 3) {
+      const l = Math.max(1e-6, lumaOf(col, i)), k = curve(l) / l;
+      const desat = sstep(0.75, 1.0, curve(l));
+      for (let c = 0; c < 3; c++) flm[i + c] = clamp(mix(col[i + c] * k, curve(l), desat * 0.85), 0, 1);
+    }
+    // llap: lift shadows, hold highlights, add clarity (approximated with one blurred base layer)
+    const L = new Float32Array(N); for (let i = 0; i < N; i++) L[i] = lumaOf(flm, 3 * i);
+    const base = blur(L, 6);
+    for (let i = 0; i < N; i++) {
+      const b0 = base[i], detail = L[i] - b0;
+      const b1 = b0 + 0.035 * Math.exp(-b0 * 9.0) - 0.03 * sstep(0.6, 1.0, b0);
+      const l1 = clamp(b1 + detail * 1.7, 0.0005, 1), k = l1 / Math.max(L[i], 1e-4);
+      for (let c = 0; c < 3; c++) lap[3 * i + c] = clamp(flm[3 * i + c] * k, 0, 1);
+    }
+    // grade: cdl-style slope/offset/power, cool shadows and warm lights
+    const slope = [1.05, 1.0, 0.93], offs = [-0.004, 0.002, 0.016], pw = [1.02, 1.0, 0.96];
+    for (let i = 0; i < N * 3; i += 3) for (let c = 0; c < 3; c++)
+      grd[i + c] = Math.pow(clamp(lap[i + c] * slope[c] + offs[c], 0, 1), pw[c]);
+    return { col, flm, lap, grd };
+  }
+
+  // ---- display helpers: turn a stage buffer into 8-bit rgba for the canvas ----
+  const enc = v => 255 * Math.pow(clamp(v, 0, 1), 1 / 2.2);
+  const pre = v => v > 1 ? 0.78 + 0.22 * (1 - Math.exp(-(v - 1) * 0.8)) : v * 0.78;   // leave headroom to show values above the clip point
+  const TINT = [[1.0, 0.16, 0.12], [0.18, 1.0, 0.2], [0.14, 0.24, 1.0]];
+  function showMosaic(m, px) {
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, c = cfa(x, y), v = pre(m[i]), t = TINT[c];
+      px[4 * i] = enc(v * t[0]); px[4 * i + 1] = enc(v * t[1]); px[4 * i + 2] = enc(v * t[2]); px[4 * i + 3] = 255;
+    }
+  }
+  function showRgb(a, px, scale) {
+    for (let i = 0; i < N; i++) {
+      px[4 * i] = enc(a[3 * i] * scale); px[4 * i + 1] = enc(a[3 * i + 1] * scale); px[4 * i + 2] = enc(a[3 * i + 2] * scale); px[4 * i + 3] = 255;
+    }
+  }
+  function render(ev) {
+    const d = develop(ev);
+    const frames = [];
+    const mk = () => new Uint8ClampedArray(N * 4);
+    let p;
+    p = mk(); showMosaic(raw, p); frames.push(p);
+    p = mk(); showMosaic(den, p); frames.push(p);
+    p = mk(); showMosaic(hil, p); frames.push(p);
+    p = mk(); showRgb(dem.map(pre), p, 1); frames.push(p);
+    p = mk(); showRgb(crp.map(pre), p, 1); frames.push(p);
+    p = mk(); showRgb(d.col, p, 1); frames.push(p);
+    p = mk(); showRgb(d.flm, p, 1); frames.push(p);
+    p = mk(); showRgb(d.lap, p, 1); frames.push(p);
+    p = mk(); showRgb(d.grd, p, 1); frames.push(p);
+    frames.push(p);                                   // display: same pixels, now on screen
+    // hist: waveform of the graded image (column x, brightness y)
+    const HW = W, HH = 64, wf = new Float32Array(HW * HH * 3);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) {
+      const v = Math.pow(clamp(d.grd[3 * (y * W + x) + c], 0, 1), 1 / 2.2);
+      wf[3 * ((HH - 1 - Math.min(HH - 1, (v * HH) | 0)) * HW + x) + c] += 1;
+    }
+    const hp = new Uint8ClampedArray(HW * HH * 4);
+    for (let i = 0; i < HW * HH; i++) { for (let c = 0; c < 3; c++) hp[4 * i + c] = 255 * (1 - Math.exp(-wf[3 * i + c] * 0.085)); hp[4 * i + 3] = 255; }
+    return { frames, hist: hp, HW, HH };
+  }
+  return { W, H, render };
+})();
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* a small transport: steps a figure through `count` states, plays while on screen */
+  function player(root, { count, show, interval = 2200, hold = 3400, rest }) {
+    const N = () => typeof count === 'function' ? count() : count;
+    let i = rest ?? N() - 1, timer = null, playing = false, held = false, started = false;
+    const btn = $('[data-act=play]', root), label = $('[data-count]', root);
+    const paint = user => { if (label) label.textContent = (i + 1) + ' / ' + N(); show(i, !!user); };
+    const go = (k, user) => { const n = N(); i = ((k % n) + n) % n; paint(user); };
+    const stop = () => { playing = false; clearTimeout(timer); root.classList.remove('playing'); if (btn) btn.setAttribute('aria-label', 'Play'); };
+    const tick = () => { timer = setTimeout(() => { go(i + 1); if (playing) tick(); }, i === N() - 1 ? hold : interval); };
+    const start = () => {
+      if (playing) return; playing = true; root.classList.add('playing'); if (btn) btn.setAttribute('aria-label', 'Pause');
+      if (!started) { started = true; go(0); } tick();
+    };
+    const manual = k => { held = true; stop(); go(k, true); };
+    if (btn) btn.addEventListener('click', () => { if (playing) { held = true; stop(); } else { held = false; start(); } });
+    const prev = $('[data-act=prev]', root), next = $('[data-act=next]', root);
+    if (prev) prev.addEventListener('click', () => manual(i - 1));
+    if (next) next.addEventListener('click', () => manual(i + 1));
+    if ('IntersectionObserver' in window && !calm) {
+      new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { if (!held) start(); } else stop(); }), { threshold: 0.35 }).observe(root);
+    }
+    paint(false);
+    return { go: manual, restart: () => { stop(); started = true; if (calm) go(N() - 1); else { held = false; go(0); start(); } } };
+  }
+
+  /* ── 1 · follow one image ─────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-flow'); if (!root) return;
+    const MODS = [
+      { n: 'i-raw', cpu: 1, f: 'rggb · ui16', d: 'read the file, upload the sensor mosaic',
+        s: '<b>i-raw</b> decodes the file on the CPU. Each photosite saw one colour through its filter, so the buffer is a mosaic: noisy, dark, and clipped where the sun is.' },
+      { n: 'denoise', f: 'rggb · f16', d: 'black level, white point, noise removal',
+        s: '<b>denoise</b> subtracts the black level, scales to the white point and removes noise using the camera\'s noise profile. Still a mosaic.' },
+      { n: 'hilite', f: 'rggb · f16', d: 'rebuild clipped highlights',
+        s: '<b>hilite</b> fills in clipped photosites from their surroundings, so the sun keeps a believable colour instead of turning magenta later.' },
+      { n: 'demosaic', f: 'rgba · f16', d: 'mosaic to full colour',
+        s: '<b>demosaic</b> interpolates the two missing colours at every photosite. The colours are still the camera\'s own, which is why everything looks green.' },
+      { n: 'crop', f: 'rgba · f16', d: 'crop, rotate, perspective',
+        s: '<b>crop</b> rotates, crops and corrects perspective. Here it levels the horizon.' },
+      { n: 'colour', f: 'rgba · f16', d: 'white balance, camera matrix, exposure',
+        s: '<b>colour</b> applies white balance and the camera matrix and brings the data to linear rec2020. The exposure slider below belongs to this module.' },
+      { n: 'filmcurv', f: 'rgba · f16', d: 'film-style curve for display',
+        s: '<b>filmcurv</b> bends scene brightness into the range a display can show, with a film-like shoulder that brings the blown-out sky back.' },
+      { n: 'llap', f: 'rgba · f16', d: 'local contrast, shadows, highlights',
+        s: '<b>llap</b> adds local contrast and opens the shadows with a local laplacian pyramid.' },
+      { n: 'grade', f: 'rgba · f16', d: 'colour grading',
+        s: '<b>grade</b> applies the colour grade: slope, offset and power per channel.' },
+      { n: 'display', f: 'rgba · f16', d: 'sink: handed to the interface',
+        s: '<b>display</b> is a sink. Its buffer is copied on the GPU into an image the interface draws. The pixels never visit the CPU.' },
+    ];
+    const cv = $('#simc'), cx = cv.getContext('2d'), hc = $('#histc'), hx = hc.getContext('2d');
+    const list = $('#modlist'), say = $('#simsay'), nm = $('#simname'), fm = $('#simfmt'), branch = $('#branch');
+    const ev = $('#ev'), evo = $('#evo');
+    list.innerHTML = MODS.map((m, k) => `<li class="${m.cpu ? 'cpu' : ''}" style="--i:${k}"><button type="button" data-k="${k}"><span class="dot"></span><span class="nm">${m.n}</span><span class="ds">${m.d}</span></button></li>`).join('');
+    const items = $$('li', list);
+    let R = SIM.render(0), shown = -1, raf = 0, note = '';
+    const img = k => new ImageData(R.frames[k], SIM.W, SIM.H);
+    const off = document.createElement('canvas'); off.width = SIM.W; off.height = SIM.H; const ox = off.getContext('2d');
+    function drawHist() { hx.putImageData(new ImageData(R.hist, R.HW, R.HH), 0, 0); }
+    function wipe(from, to) {
+      cancelAnimationFrame(raf);
+      if (calm || from < 0 || from === to) { cx.putImageData(img(to), 0, 0); return; }
+      ox.putImageData(img(to), 0, 0); const base = img(from), t0 = performance.now(), dur = 620;
+      const step = now => {
+        const t = Math.min(1, (now - t0) / dur), e = t * t * (3 - 2 * t), x = Math.round(e * SIM.W);
+        cx.putImageData(base, 0, 0);
+        if (x > 0) cx.drawImage(off, 0, 0, x, SIM.H, 0, 0, x, SIM.H);
+        if (t < 1) { cx.fillStyle = '#28de84'; cx.fillRect(Math.min(x, SIM.W - 1), 0, 1, SIM.H); raf = requestAnimationFrame(step); }
+      };
+      raf = requestAnimationFrame(step);
+    }
+    function show(k) {
+      const m = MODS[k];
+      items.forEach((li, j) => { li.classList.toggle('now', j === k); li.classList.toggle('done', j < k); });
+      nm.textContent = m.n; fm.textContent = m.f;
+      say.innerHTML = note || m.s; note = '';
+      branch.classList.toggle('live', k >= 8);
+      wipe(shown, k); shown = k;
+    }
+    const P = player(root, { count: MODS.length, show, interval: 2600, hold: 4200 });
+    list.addEventListener('click', e => { const b = e.target.closest('button'); if (b) P.go(+b.dataset.k); });
+    ev.addEventListener('input', () => {
+      const v = +ev.value; evo.textContent = (v > 0 ? '+' : '') + v.toFixed(1) + ' ev';
+      R = SIM.render(v); drawHist();
+      note = 'Parameter changed. One float in the uniform buffer was rewritten and the <b>whole graph ran again</b>. Nothing was rebuilt.';
+      shown = -1; P.go(MODS.length - 1);
+      list.classList.remove('rerun'); void list.offsetWidth; list.classList.add('rerun');
+    });
+    drawHist();
+  })();
+
+  /* ── 2 · three programs ───────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-stack'); if (!root) return;
+    const SAY = {
+      gui: 'vkdt, the GUI, uses everything except the two command-line front ends.',
+      cli: 'vkdt-cli is the same engine without a window: it loads a graph, runs it and writes the outputs.',
+      fit: 'vkdt-fit wraps the engine in an optimiser loop. It also needs no window.',
+    };
+    const layers = $$('.layer', root), btns = $$('[data-prog]', root), say = $('#stack-say');
+    function pick(p, animate) {
+      btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.prog === p));
+      let n = 0;
+      layers.forEach(l => {
+        const on = l.dataset.use.split(' ').includes(p);
+        l.classList.toggle('off', !on); l.classList.remove('pulse');
+        if (on) { l.style.setProperty('--i', n++); if (animate) { void l.offsetWidth; l.classList.add('pulse'); } }
+      });
+      say.textContent = SAY[p];
+    }
+    btns.forEach(b => b.addEventListener('click', () => pick(b.dataset.prog, true)));
+    pick('gui', false);
+  })();
+
+  /* ── 4 · one run ──────────────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-run'); if (!root) return;
+    const SC = {
+      all:   { steps: [1, 2, 3, 4, 5, 6, 7, 8], flags: '<b>s_graph_run_all</b>: every stage runs.' },
+      param: { steps: [1, 7, 8], flags: '<b>s_graph_run_record_cmd_buf</b>, plus whatever the module\'s <b>check_params</b> asks for. Sizes, nodes and memory are kept.' },
+      frame: { steps: [1, 6, 7, 8], flags: '<b>s_graph_run_record_cmd_buf</b>, and sources with a new frame upload it. Sizes, nodes and memory are kept.' },
+    };
+    const groups = $$('.runfig .g', root), lis = $$('#run-steps li', root), flags = $('#run-flags'), scb = $$('[data-sc]', root);
+    let sc = 'all';
+    function show(i) {
+      const run = SC[sc].steps, cur = run[i];
+      groups.forEach(g => { const s = +g.dataset.s, kept = !run.includes(s); g.classList.toggle('on', s <= cur || kept); g.classList.toggle('kept', kept); g.classList.toggle('now', s === cur); });
+      lis.forEach(li => { const s = +li.dataset.s; li.classList.toggle('now', s === cur); li.classList.toggle('skip', !run.includes(s)); });
+    }
+    const P = player(root, { count: () => SC[sc].steps.length, show, interval: 2400, hold: 3600 });
+    lis.forEach(li => $('button', li).addEventListener('click', () => { const k = SC[sc].steps.indexOf(+li.dataset.s); if (k >= 0) P.go(k); }));
+    function pick(s, user) {
+      sc = s;
+      scb.forEach(b => b.setAttribute('aria-pressed', b.dataset.sc === s));
+      flags.innerHTML = 'flags: ' + SC[s].flags;
+      if (user) P.restart();
+    }
+    scb.forEach(b => b.addEventListener('click', () => pick(b.dataset.sc, true)));
+    pick('all', false);
+  })();
+
+  /* ── 5 · memory ───────────────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-mem'); if (!root) return;
+    const NODES = [
+      { n: 'i-raw',    out: { id: 'mosaic',   sz: 1, keep: 'source' }, reads: [] },
+      { n: 'denoise',  out: { id: 'denoised', sz: 1 }, reads: ['mosaic'] },
+      { n: 'hilite',   out: { id: 'hilite',   sz: 1 }, reads: ['denoised'] },
+      { n: 'demosaic', out: { id: 'rgb',      sz: 4 }, reads: ['hilite'] },
+      { n: 'colour',   out: { id: 'colour',   sz: 4 }, reads: ['rgb'] },
+      { n: 'filmcurv', out: { id: 'curve',    sz: 4 }, reads: ['colour'] },
+      { n: 'llap',     out: { id: 'llap',     sz: 4 }, reads: ['curve'] },
+      { n: 'grade',    out: { id: 'graded',   sz: 4, keep: 'sink' }, reads: ['llap'] },
+      { n: 'hist',     out: { id: 'waveform', sz: 1, keep: 'sink' }, reads: ['graded'] },
+    ];
+    // first fit over a sorted free list, exactly one pass in execution order
+    const last = {}; NODES.forEach((nd, k) => nd.reads.forEach(r => last[r] = k));
+    let free = [[0, 1e9]], blocks = {}, peak = 0, sum = 0; const frames = [];
+    NODES.forEach((nd, k) => {
+      const o = nd.out, f = free.findIndex(g => g[1] - g[0] >= o.sz), off = free[f][0];
+      free[f][0] += o.sz; if (free[f][0] === free[f][1]) free.splice(f, 1);
+      blocks[o.id] = { ...o, off, by: nd.n, born: k, died: null }; peak = Math.max(peak, off + o.sz); sum += o.sz;
+      const freed = [];
+      nd.reads.forEach(r => { const b = blocks[r]; if (last[r] === k && !b.keep) {
+        b.died = k; freed.push(b); free.push([b.off, b.off + b.sz]); free.sort((a, c) => a[0] - c[0]);
+        for (let j = free.length - 1; j > 0; j--) if (free[j - 1][1] === free[j][0]) { free[j - 1][1] = free[j][1]; free.splice(j, 1); }
+      } });
+      frames.push({ node: nd, made: blocks[o.id], freed });
+    });
+    const heap = $('#heap'), list = $('#mem-nodes'), say = $('#mem-say');
+    $('#mem-cap').textContent = peak + ' units'; $('#mem-sum').textContent = sum + ' units'; $('#mem-peak').textContent = peak + ' units';
+    for (let u = 1; u < peak; u++) { const t = document.createElement('i'); t.className = 'tick'; t.style.left = (u / peak * 100) + '%'; heap.append(t); }
+    list.innerHTML = NODES.map(n => `<li>${n.n}</li>`).join('');
+    const lis = $$('li', list);
+    const els = Object.values(blocks).map(b => {
+      const d = document.createElement('div'); d.className = 'blk' + (b.keep ? ' keep' : '');
+      d.style.left = `calc(${b.off / peak * 100}% + 2px)`; d.style.width = `calc(${b.sz / peak * 100}% - 4px)`;
+      d.textContent = b.sz > 1 ? b.by : ''; d.title = b.by + ' output'; heap.append(d); return { b, d };
+    });
+    const unit = n => n + (n === 1 ? ' unit' : ' units');
+    function show(k) {
+      lis.forEach((li, j) => { li.classList.toggle('now', j === k); li.classList.toggle('done', j < k); });
+      els.forEach(({ b, d }) => {
+        const live = b.born <= k && (b.died === null || b.died >= k);
+        d.classList.toggle('live', live); d.classList.toggle('new', b.born === k);
+        d.classList.toggle('freed', b.died !== null && b.died < k);
+      });
+      const f = frames[k]; let t = `<code>${f.node.n}</code> writes ${unit(f.made.sz)} at offset ${f.made.off}`;
+      t += f.made.keep ? `, kept for good because a ${f.made.keep === 'source' ? 'source owns it' : 'sink reads it'}.` : ', the first gap that fits.';
+      if (f.freed.length) { const z = f.freed[0].sz; t += ` Once it has run, nobody else reads the output of <code>${f.freed[0].by}</code>, so ${z === 1 ? 'that unit is' : 'those ' + z + ' units are'} free for the next node.`; }
+      say.innerHTML = t;
+    }
+    player(root, { count: NODES.length, show, interval: 2300, hold: 3800 });
+  })();
+
+  /* ── 6 · inside a module ──────────────────────────────────────────── */
+  (() => {
+    const s = $('#mev'); if (!s) return;
+    const o = $('#mev-o'), u = $('#mev-u'), m = $('#mev-m'), rin = $('#ramp-in'), rout = $('#ramp-out');
+    const IN = [0.004, 0.012, 0.03, 0.07, 0.14, 0.26, 0.45, 0.75];
+    const grey = v => { const c = Math.round(255 * Math.pow(Math.min(1, Math.max(0, v)), 1 / 2.2)); return `rgb(${c},${c},${c})`; };
+    rin.innerHTML = IN.map(v => `<i style="background:${grey(v)}"></i>`).join(''); rout.innerHTML = rin.innerHTML;
+    const outs = $$('i', rout), order = ['#p-ui', '#p-par', '#p-sh'].map(q => $(q));
+    let timers = [];
+    function upd(flash) {
+      const v = +s.value, k = Math.pow(2, v);
+      o.textContent = v.toFixed(1); u.textContent = v.toFixed(1);
+      m.textContent = k >= 100 ? k.toFixed(0) : k >= 0.01 ? k.toFixed(2) : k.toExponential(1);
+      outs.forEach((el, j) => el.style.background = grey(IN[j] * k));
+      if (flash && !calm) {
+        timers.forEach(clearTimeout); order.forEach(el => el.classList.remove('flash'));
+        timers = order.map((el, j) => setTimeout(() => { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 420); }, j * 160));
+      }
+    }
+    s.addEventListener('input', () => upd(true)); upd(false);
+  })();
+
+  /* ── 7 · feedback ─────────────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-fb'); if (!root) return;
+    const svg = $('.fb', root), lab = $('#fb-frame');
+    let frame = 12;
+    player(root, { count: 2, rest: 0, interval: 1700, hold: 1700, show: (i, user) => { svg.dataset.f = i; lab.textContent = 'frame ' + frame++; } });
+  })();
+
+  /* ── 8 · main loop ────────────────────────────────────────────────── */
+  (() => {
+    const root = $('#fig-loop'); if (!root) return;
+    const st = $$('.st', root), gq = $$('.gq', root), a = k => $(`[data-a=${k}]`, root);
+    // two turns of the loop: the run submitted in the first is drawn in the second
+    const T = [
+      { s: 0 }, { s: 1, g: [0], a: ['sub'] }, { s: 2, g: [0] }, { s: 3, g: [0] },
+      { s: 0, g: [1], a: ['cp'] }, { s: 1 }, { s: 2 }, { s: 3, g: [1], a: ['smp'] },
+    ];
+    function show(i, user) {
+      const t = T[i], idle = calm && !user;
+      st.forEach((e, j) => e.classList.toggle('now', !idle && j === t.s));
+      gq.forEach((e, j) => e.classList.toggle('now', !idle && (t.g || []).includes(j)));
+      ['sub', 'cp', 'smp'].forEach(k => { const on = !idle && (t.a || []).includes(k); a(k).classList.toggle('now', on); a(k).setAttribute('marker-end', on ? 'url(#l-gpu)' : 'url(#l-dim)'); });
+    }
+    player(root, { count: T.length, rest: 0, interval: 950, hold: 1500, show });
+  })();
+})();
+</script>
+</body>
+</html>
