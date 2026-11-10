@@ -27,6 +27,7 @@ what it covers, in order:
 
 * the files that make up a module, using `exposure` as the example
 * writing your own module, shader-only and with `create_nodes`
+* the formulas behind `filmcurv`, `llap`, `denoise` and `grade`, as live plots
 * a browsable catalogue of all modules with their connectors and parameters
 
 **the app**

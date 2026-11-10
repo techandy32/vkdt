@@ -458,6 +458,21 @@ pre.tree .g{color:var(--gpu)}
 .buildrows li.now .b-tool{color:var(--gpu)}
 .buildrows li.later{opacity:.45}
 
+
+/* four formulas */
+.algwrap{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:22px;align-items:start}
+.algfig{max-width:none}
+.algfig .c0{fill:none;stroke:var(--gpu);stroke-width:2.2}
+.algfig .c1{fill:none;stroke:var(--dim);stroke-width:1.2;stroke-dasharray:5 4}
+.algfig .c2{fill:none;stroke:var(--steel);stroke-width:1.5}
+.algfig .dot{fill:var(--cpu)}
+.alg-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.alg-side pre.cfg{font-size:12px;line-height:1.6;padding:10px 12px;background:var(--bg);white-space:pre-wrap}
+.alg-sliders{display:flex;flex-direction:column;gap:8px}
+.alg-sliders .param{flex:none}
+.alg-text{font-size:14.5px;line-height:1.55}
+.alg-text code{color:var(--fg)}
+
 @media (max-width:760px){
   .dr,.anat{grid-template-columns:minmax(0,1fr)}
   .wire{grid-template-columns:minmax(0,1fr);gap:4px}
@@ -467,6 +482,7 @@ pre.tree .g{color:var(--gpu)}
   .cmds li{grid-template-columns:12px minmax(0,1fr)}
   .cmds .cx{grid-column:2}
   .toc-h{min-width:100%}
+  .algwrap{grid-template-columns:minmax(0,1fr)}
   .stations{grid-template-columns:minmax(0,1fr)}
   .stations .strip i{aspect-ratio:2/1}
   .histwrap{grid-template-columns:minmax(0,1fr)}
@@ -498,7 +514,7 @@ pre.tree .g{color:var(--gpu)}
   <nav class="toc" aria-label="Sections">
     <div class="toc-row"><span class="toc-h">the idea</span><a href="#flow">follow one image</a><a href="#parts">the parts</a><a href="#colour">colour</a></div>
     <div class="toc-row"><span class="toc-h">the engine</span><a href="#layers">modules and nodes</a><a href="#run">one run</a><a href="#gpu">GPU commands</a><a href="#memory">memory</a><a href="#time">frames</a><a href="#fit">fitting</a></div>
-    <div class="toc-row"><span class="toc-h">modules</span><a href="#module">inside a module</a><a href="#write">write your own</a><a href="#catalog">catalogue</a></div>
+    <div class="toc-row"><span class="toc-h">modules</span><a href="#module">inside a module</a><a href="#write">write your own</a><a href="#algos">four formulas</a><a href="#catalog">catalogue</a></div>
     <div class="toc-row"><span class="toc-h">the app</span><a href="#app">main loop</a><a href="#history">undo</a><a href="#threads">threads and queues</a><a href="#light">lighttable</a><a href="#disk">files on disk</a><a href="#build">build</a><a href="#map">source map</a></div>
   </nav>
   <p class="key"><span><i class="k-gpu"></i>happens on the GPU</span><span><i class="k-cpu"></i>the CPU or the disk is involved</span></p>
@@ -548,11 +564,11 @@ pre.tree .g{color:var(--gpu)}
         </div>
       </div>
     </div>
-    <figcaption>A toy 192×128 sensor computed in your browser to show what each step is for. It imitates the modules; it does not run vkdt's shaders.</figcaption>
+    <figcaption>A toy 192 × 128 sensor computed in your browser to show what each step is for. It imitates the modules; it does not run vkdt's shaders.</figcaption>
   </figure>
 
   <dl class="points">
-    <div><dt>The CPU only works at the edges</dt><dd><code>i-raw</code> decodes the file on the CPU and uploads it once. From then on the image stays in GPU memory until a sink takes it.</dd></div>
+    <div><dt>The CPU only works at the edges</dt><dd><code>i-raw</code> decodes the file on the CPU and uploads it once. From then on the image stays in GPU memory until it reaches a sink, an end point of the graph.</dd></div>
     <div><dt>The edit is a text file</dt><dd>The list above is stored next to your photo as <code>IMG_0412.CR2.cfg</code>. Nothing else describes the edit, and the original is never touched.</dd></div>
     <div><dt>A graph, not a chain</dt><dd><code>grade</code> feeds the main display and also <code>hist</code>, which draws the waveform into a second sink. Modules can have several inputs and outputs.</dd></div>
   </dl>
@@ -618,7 +634,7 @@ pre.tree .g{color:var(--gpu)}
   </div>
 
   <figure class="fig" id="fig-col">
-    <div class="fig-bar"><span class="fig-title">six patches, five meanings</span><div class="transport"><button type="button" data-act="prev" aria-label="Previous step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button><button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button><button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button><span class="count" data-count></span></div></div>
+    <div class="fig-bar"><span class="fig-title">six colour patches at five stages</span><div class="transport"><button type="button" data-act="prev" aria-label="Previous step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button><button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button><button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button><span class="count" data-count></span></div></div>
     <div class="fig-body">
       <ol class="stations" id="col-stations"></ol>
       <p class="fig-say" id="col-say" aria-live="polite"></p>
@@ -627,11 +643,11 @@ pre.tree .g{color:var(--gpu)}
   </figure>
 
   <dl class="points">
-    <div><dt>Metadata rides along</dt><dd>In the forward size pass every module receives a copy of its input's image parameters: black and white level, white balance, colour filter pattern, the camera matrix, a noise profile, exposure data, and the two colour tags. A module that changes what the data means patches the copy: <code>demosaic</code> clears the filter pattern, <code>colour</code> sets the tags to rec2020 and linear.</dd></div>
+    <div><dt>Metadata travels with the image</dt><dd>When sizes travel forward through the graph, every module receives a copy of its input's image metadata: black and white level, white balance, colour filter pattern, the camera matrix, a noise profile, exposure data, and the two colour tags. A module that changes what the data means patches the copy: <code>demosaic</code> clears the filter pattern, <code>colour</code> sets the tags to rec2020 and linear.</dd></div>
     <div><dt>One working space</dt><dd>From <code>colour</code> onward everything is linear rec2020. Modules do not have to ask what they are looking at, and the interface draws its own widgets in the same space.</dd></div>
-    <div><dt>Other inputs declare themselves</dt><dd>A jpg arrives tagged sRGB primaries, sRGB curve; an exr usually rec2020, linear. <code>colour</code> reads the tags and undoes the curve, so the rest of the graph never knows the difference.</dd></div>
-    <div><dt>Leaving through a file</dt><dd>On export the display sink is replaced by an output module, with <code>colenc</code> in front of it whenever the file is 8-bit or anything other than linear rec2020 is asked for. <code>colenc</code> converts to the primaries and curve you ask for; the export panel defaults to sRGB.</dd></div>
-    <div><dt>The monitor comes last</dt><dd>A small text file per monitor holds a gamma and a 3 × 3 matrix. The interface's fragment shader applies them to the whole window, then dithers to 8 or 10 bits. Without a file it assumes sRGB.</dd></div>
+    <div><dt>Other inputs declare themselves</dt><dd>A jpg arrives tagged with sRGB primaries and an sRGB curve. An exr is usually tagged rec2020, linear. <code>colour</code> reads the tags and undoes the curve, so the rest of the graph never knows the difference.</dd></div>
+    <div><dt>Leaving through a file</dt><dd>On export the display sink is replaced by an output module. <code>colenc</code> is placed in front of it when the file is 8-bit, or when you ask for anything other than linear rec2020. <code>colenc</code> converts to the primaries and curve you ask for; the export panel defaults to sRGB.</dd></div>
+    <div><dt>The monitor comes last</dt><dd>A small text file per monitor holds a gamma and a 3 × 3 matrix. The interface's fragment shader applies them to the whole window, then dithers to 8 or 10 bits. Without this file the shader assumes sRGB.</dd></div>
     <div><dt>Thumbnails take a shortcut</dt><dd>They are stored with rec2020 primaries and an sRGB curve. The texture format tells the GPU to undo the curve while sampling, so inside the interface they are linear again.</dd></div>
   </dl>
 </section>
@@ -684,7 +700,7 @@ pre.tree .g{color:var(--gpu)}
 
   <div class="prose">
     <p>The number of nodes can depend on the image size, which is why nodes are only created once sizes are known. A graph may hold up to 100 modules and 2000 nodes.</p>
-    <p>Modules and nodes talk through <strong>connectors</strong>. A connector has a name, a direction, a channel layout and a pixel format, for example <code>output:write:rgba:f16</code>. A <code>*</code> means "whatever the other side has", so a module like <code>exposure</code> works on any buffer.</p>
+    <p>Modules and nodes talk through <strong>connectors</strong>. A connector has a name, a type, a channel layout and a pixel format, for example <code>output:write:rgba:f16</code>. A <code>*</code> is a blank, filled in from the other end of the wire, so a module like <code>exposure</code> works on any buffer.</p>
   </div>
   <figure class="fig" id="fig-conn">
     <div class="fig-bar"><span class="fig-title">how the blanks in connectors get filled in</span><div class="transport"><button type="button" data-act="prev" aria-label="Previous step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button><button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button><button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button><span class="count" data-count></span></div></div>
@@ -750,7 +766,7 @@ pre.tree .g{color:var(--gpu)}
               <path class="hl arr" d="M36 22V59" style="fill:none;stroke-width:1.6" stroke="var(--cpu)" marker-end="url(#r-cpu)"/>
             </g>
             <g class="g" data-s="7"><path class="flow" d="M68 87H118"/><path class="flow" d="M184 87H234"/><path class="flow" d="M300 87H350"/><rect class="hl" x="4" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="120" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="236" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/><rect class="hl" x="352" y="62" width="64" height="46" rx="3" fill="none" stroke="none" stroke-width="2"/>
-              <text class="hl t-dim" x="416" y="14" font-size="11" text-anchor="end">image the GUI draws</text>
+              <text class="hl t-dim" x="416" y="14" font-size="11" text-anchor="end">image the interface draws</text>
               <path class="hl arr" d="M384 59V22" style="fill:none;stroke-width:1.6" stroke="var(--dim)" marker-end="url(#r-dim)"/>
               <text class="hl t-dim" x="210" y="211" font-size="10.5" text-anchor="middle">one command buffer: bind shader, bind images, dispatch, per node</text>
             </g>
@@ -764,7 +780,7 @@ pre.tree .g{color:var(--gpu)}
         <ol class="steps" id="run-steps">
           <li data-s="1"><button type="button"><span class="hd">Sort <code>always</code></span><span class="tx">Walk backwards from the sinks, depth first. The result is an order in which every module comes after the ones it reads from.</span></button></li>
           <li data-s="2"><button type="button"><span class="hd">Sizes, forward <code>roi</code></span><span class="tx">From source to sink, each module announces the full size of its output (<code>modify_roi_out</code>).</span></button></li>
-          <li data-s="3"><button type="button"><span class="hd">Sizes, backward <code>roi, create_nodes</code></span><span class="tx">From sink to source, each module says what it needs from its input (<code>modify_roi_in</code>). A thumbnail, a size-limited export or a darkroom set to fit-to-screen asks for less than the full image. From a threefold reduction on, <code>demosaic</code> switches to a half-size kernel and everything after it works on a small buffer.</span></button></li>
+          <li data-s="3"><button type="button"><span class="hd">Sizes, backward <code>roi, create_nodes</code></span><span class="tx">From sink to source, each module says what it needs from its input (<code>modify_roi_in</code>). A thumbnail, a size-limited export or a darkroom set to fit-to-screen asks for less than the full image. When the reduction is threefold or more, <code>demosaic</code> switches to a half-size kernel and everything after it works on a small buffer.</span></button></li>
           <li data-s="4"><button type="button"><span class="hd">Create nodes <code>roi, create_nodes</code></span><span class="tx">Old nodes are discarded and every module builds its nodes for these sizes.</span></button></li>
           <li data-s="5"><button type="button"><span class="hd">Plan memory <code>alloc</code></span><span class="tx">Every node output gets a place in GPU memory. Shader pipelines and descriptor sets are created.</span></button></li>
           <li data-s="6"><button type="button"><span class="hd">Upload sources <code>upload_source</code></span><span class="tx"><code>read_source</code> runs on the CPU and fills a staging buffer, for example with decoded raw data.</span></button></li>
@@ -797,7 +813,7 @@ pre.tree .g{color:var(--gpu)}
     <figcaption>This is the whole default darkroom graph, including three modules that ship in the file unconnected. The same walk is reused for both layers: over the modules (once to order them, once more when parameters are committed) and over the nodes they created.</figcaption>
   </figure>
   <div class="prose">
-    <p>Note what does <em>not</em> happen when you move a slider: nothing is rebuilt and nothing is cached per module. The parameters are rewritten and the whole graph runs again on the GPU. vkdt relies on that being fast instead of caching intermediate results.</p>
+    <p>Note what does <em>not</em> happen when you move a slider: nothing is rebuilt and nothing is cached per module. The parameters are rewritten and the whole graph runs again on the GPU. vkdt relies on the full run being fast and does not cache intermediate results.</p>
   </div>
 </section>
 
@@ -820,7 +836,7 @@ pre.tree .g{color:var(--gpu)}
       <div class="tape" id="cmd-tape" aria-hidden="true"></div>
       <p class="key tape-key"><span><i class="t-b"></i>barrier</span><span><i class="t-s"></i>bind</span><span><i class="t-d"></i>dispatch</span><span><i class="t-c"></i>copy</span><span><i class="t-t"></i>timestamp</span><span><i class="t-h"></i>on the CPU, not recorded</span></p>
     </div>
-    <figcaption>Four of the roughly sixty nodes the default graph produces for a 24-megapixel raw, most of them inside <code>hilite</code> and <code>llap</code>. Sizes follow the fit-to-screen example above. The node count is an estimate from reading the modules, not a measurement.</figcaption>
+    <figcaption>Four example nodes. The default graph produces roughly sixty for a 24-megapixel raw, most of them inside <code>hilite</code> and <code>llap</code>. Sizes follow the fit-to-screen example above. The node count is an estimate from reading the modules, not a measurement.</figcaption>
   </figure>
 
   <div class="prose">
@@ -920,7 +936,7 @@ pre.tree .g{color:var(--gpu)}
       <pre class="cfg" id="ease-cfg" aria-label="The two keyframe lines for this animation"></pre>
       <p class="fig-say" id="ease-say" aria-live="polite"></p>
     </div>
-    <figcaption>A line reads keyword : frame : module : instance : parameter : first element : one past the last element : values. The keyword of the keyframe you are heading towards picks the curve, and its capital letters show where the motion is slow.</figcaption>
+    <figcaption>A line reads keyword : frame : module : instance : parameter : first element : one past the last element : values. The keyword of the later keyframe selects the curve. Its capital letters show where the motion is slow.</figcaption>
   </figure>
   <div class="prose">
     <p><strong>Feedback connectors</strong> carry a module's output from the previous frame into the current one. This is how frame accumulation, temporal denoising and simulations work. A feedback buffer exists twice. Each frame writes one copy and reads the other, then they swap.</p>
@@ -987,7 +1003,7 @@ pre.tree .g{color:var(--gpu)}
 
   <div class="prose">
     <p>For each evaluation the candidate values are written straight into parameter memory and the graph runs with three flags: record, download, wait. Nothing is rebuilt, so an evaluation costs little more than the GPU work itself. The search respects the range of each parameter's slider, and when it ends the complete graph is printed as a <code>.cfg</code> with the fitted values.</p>
-    <p>A real use from the tree: the table of neutral filter settings for the film simulation module. A grey patch goes through <code>filmsim</code> into <code>pick</code>, and three parameters are varied until the picked colour matches the grey.</p>
+    <p>A real use from the repository: the table of neutral filter settings for the film simulation module. A grey patch goes through <code>filmsim</code> into <code>pick</code>, and three parameters are varied until the picked colour matches the grey.</p>
   </div>
 <pre class="cfg" aria-label="vkdt-fit command from src/pipe/modules/filmsim/wb.h">vkdt-fit -d none -g neutral-start.cfg \
   <span class="k">--param</span> "filmsim:01:filter m" \
@@ -997,7 +1013,7 @@ pre.tree .g{color:var(--gpu)}
   --nelder-mead \
   --config "param:filmsim:01:film:$f" "param:filmsim:01:paper:$p"</pre>
   <div class="prose">
-    <p>Gauss-Newton is the default search method. Adam and Nelder-Mead, as used above, can be selected instead.</p>
+    <p>Gauss-Newton is the default search method. Adam and Nelder-Mead can be selected instead. The example above uses Nelder-Mead.</p>
   </div>
 </section>
 
@@ -1008,7 +1024,7 @@ pre.tree .g{color:var(--gpu)}
     <h2>Inside a module</h2>
   </div>
   <div class="prose">
-    <p>A module is a folder. The simplest ones contain no C code at all. <code>exposure</code> is three tiny text files and a shader. Drag the slider on the right to follow one value from the interface into the shader.</p>
+    <p>A module is a folder. The simplest ones contain no C code at all. <code>exposure</code> is three tiny text files and a shader. Drag the slider in the figure to follow one value from the interface into the shader.</p>
   </div>
 
   <figure class="fig" id="fig-mod">
@@ -1040,7 +1056,7 @@ void main()
             <div class="pb"><label for="mev">exposure</label><div class="row"><input type="range" id="mev" min="-10" max="10" step="0.1" value="1"><output id="mev-o" for="mev">1.0</output></div></div></div>
           <div class="piece" id="p-par"><div class="fn">one float in the uniform buffer <span>from params</span></div>
             <div class="pb"><div>params_t { ev = <b class="num inl" id="mev-u">1.0</b> }</div></div></div>
-          <div class="piece" id="p-con"><div class="fn">a node with two ports <span>from connectors</span></div>
+          <div class="piece" id="p-con"><div class="fn">a node with two connectors <span>from connectors</span></div>
             <div class="pb">
               <svg viewBox="0 0 300 46" role="img" aria-label="One node, exposure main, with an input port and an output port" style="max-width:340px;margin:0">
                 <path class="ln" d="M4 23H70M230 23H296"/>
@@ -1058,11 +1074,11 @@ void main()
         </div>
       </div>
     </div>
-    <figcaption>The module contains no interface code. Parameters reach the shader by position, not by name: the first line of <code>params</code> becomes the first field of <code>params_t</code>, which is why the file says <code>exposure</code> and the shader says <code>ev</code>.</figcaption>
+    <figcaption>The module contains no interface code. Parameters reach the shader by position, not by name: the first line of <code>params</code> becomes the first field of <code>params_t</code>. That is why the file says <code>exposure</code> and the shader says <code>ev</code>.</figcaption>
   </figure>
 
   <div class="prose">
-    <p>When a module needs more than one shader, or has to touch files, it adds a <code>main.c</code> that exports callbacks. Every one of them is optional, and roughly one module in five gets by without any.</p>
+    <p>When a module needs more than one shader, or has to touch files, it adds a <code>main.c</code> that exports callbacks. Every one of them is optional, and roughly one module in five exports none.</p>
   </div>
   <div class="scroll-x">
     <table class="tbl">
@@ -1103,7 +1119,7 @@ void main()
       <div class="howto">
         <ol class="howto-steps">
           <li><h3>Make the folder</h3><p><code>src/pipe/modules/desat/</code>. The name has to fit a token, so eight characters at most.</p></li>
-          <li><h3>Declare the ports</h3><p>In a file called <code>connectors</code>. The names <code>input</code> and <code>output</code> get default behaviour for free: sizes and image metadata pass from one to the other, and a disabled module is bypassed along them.</p>
+          <li><h3>Declare the connectors</h3><p>In a file called <code>connectors</code>. The names <code>input</code> and <code>output</code> get default behaviour automatically: sizes and image metadata pass from one to the other, and a disabled module is bypassed along them.</p>
 <pre class="cfg">input:read:rgba:f16
 output:write:rgba:f16</pre></li>
           <li><h3>Declare the parameter and its widget</h3><p>One line in <code>params</code>, one in <code>params.ui</code>.</p>
@@ -1177,11 +1193,60 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <div><dt>dt_node_connect</dt><dd>A wire between two nodes inside the module. Nobody outside ever sees it.</dd></div>
   </dl>
 
-  <h3 style="margin-top:14px">Things that trip people up</h3>
+  <h3 style="margin-top:14px">Common mistakes</h3>
   <dl class="points">
-    <div><dt>Order is the interface</dt><dd>Parameters are packed in file order and copied byte for byte into the uniform block. The order in <code>params</code> must match the fields of <code>params_t</code>, and the packing must already agree with GLSL's std140 rules: declare a <code>vec4</code> as <code>float:4</code> and stay away from <code>vec3</code>.</dd></div>
+    <div><dt>Parameter order matters</dt><dd>Parameters are packed in file order and copied byte for byte into the uniform block. The order in <code>params</code> must match the fields of <code>params_t</code>, and the packing must already agree with GLSL's std140 rules: declare a <code>vec4</code> as <code>float:4</code> and stay away from <code>vec3</code>.</dd></div>
     <div><dt>Includes need a build rule</dt><dd>Shaders are not scanned for <code>#include</code>. If yours pulls in another file, add one dependency line to <code>flat.mk</code> so it is rebuilt when that file changes.</dd></div>
     <div><dt>Check the wiring first</dt><dd><code>vkdt-cli --dump-modules</code> and <code>--dump-nodes</code> print the graph in graphviz format, before and after modules expand into nodes.</dd></div>
+  </dl>
+</section>
+
+<!-- ───────────────────────── algos ───────────────────────── -->
+<section id="algos">
+  <div class="sec-head">
+    <p class="eyebrow">src/pipe/modules/{filmcurv,llap,denoise,grade}/ <a class="up" href="#top">contents ↑</a></p>
+    <h2>Four modules, four formulas</h2>
+  </div>
+  <div class="prose">
+    <p>The architecture exists to run small pieces of image maths. Here are four of them, taken from the shaders of the default graph. Move a slider and the curve is recomputed from the same formula the shader uses.</p>
+  </div>
+
+  <figure class="fig" id="fig-alg">
+    <div class="fig-bar">
+      <span class="fig-title" id="alg-title">what the shader computes</span>
+      <div class="seg" role="group" aria-label="Module">
+        <button type="button" data-alg="filmcurv" aria-pressed="true">filmcurv</button>
+        <button type="button" data-alg="llap" aria-pressed="false">llap</button>
+        <button type="button" data-alg="denoise" aria-pressed="false">denoise</button>
+        <button type="button" data-alg="grade" aria-pressed="false">grade</button>
+      </div>
+    </div>
+    <div class="fig-body">
+      <div class="algwrap">
+        <svg class="algfig" viewBox="0 0 400 250" role="img" aria-label="Plot of the selected module's formula for the current slider values">
+          <path class="ln-d" id="alg-grid" d=""/>
+          <path class="ln" d="M46 12V214H392"/>
+          <g id="alg-ticks"></g>
+          <g id="alg-curves"></g>
+          <text id="alg-xl" x="219" y="244" font-size="10.5" text-anchor="middle" class="t-dim"></text>
+          <text id="alg-yl" x="12" y="113" font-size="10.5" text-anchor="middle" class="t-dim" transform="rotate(-90 12 113)"></text>
+        </svg>
+        <div class="alg-side">
+          <pre class="cfg" id="alg-formula"></pre>
+          <div class="alg-sliders" id="alg-sliders"></div>
+          <p class="alg-text" id="alg-text"></p>
+          <p class="sub" id="alg-nodes"></p>
+        </div>
+      </div>
+    </div>
+    <figcaption>Computed in your browser from the formulas in each module's shader. Parameter names, defaults and slider ranges are the modules' own. The first slider moves by itself until you touch one.</figcaption>
+  </figure>
+
+  <dl class="points">
+    <div><dt>hilite</dt><dd>Builds a pyramid of the half-size raw image. Each coarser level averages only neighbours that are not clipped. On the way back up, a clipped pixel takes the coarse colour, scaled to agree with the channels the finer level still trusts. About 22 nodes for a 24-megapixel raw.</dd></div>
+    <div><dt>demosaic</dt><dd>Three methods. The default fits a small oriented gaussian to the greens of each block and interpolates green along it, then fills red and blue as ratios to green. RCD is an alternative for Bayer sensors. Half size merges each block into one pixel.</dd></div>
+    <div><dt>crop</dt><dd>One node. For every output pixel it rotates, applies a perspective transform solved from four corner points, and samples the input there.</dd></div>
+    <div><dt>hist</dt><dd>Two nodes. The first scatters: every input pixel adds one to a counter in a 1000 × 600 image, the three channels packed into one 32-bit integer with ten bits each. The second turns the counts into brightness.</dd></div>
   </dl>
 </section>
 
@@ -1192,7 +1257,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <h2>Every module at a glance</h2>
   </div>
   <div class="prose">
-    <p>This catalogue is generated from the repository: every module's <code>connectors</code> and <code>params</code> files, the category list in the modules readme, and <code>doc/core.txt</code>. Pick a module to see its ports and parameters.</p>
+    <p>This catalogue is generated from the repository: every module's <code>connectors</code> and <code>params</code> files, the category list in the modules readme, and <code>doc/core.txt</code>. Pick a module to see its connectors and parameters.</p>
   </div>
   <figure class="fig" id="fig-cat">
     <div class="fig-bar">
@@ -1204,7 +1269,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
       <div class="cat-grid" id="cat-grid"></div>
       <div class="cat-detail" id="cat-detail" aria-live="polite"></div>
     </div>
-    <figcaption>A filled dot means the module has C code (a <code>main.c</code> or <code>main.cc</code>); a hollow dot means it has none. Green names are <em>core</em> modules, which promise backward compatibility. Everything else counts as beta. Amber ports are sources and sinks, where data enters or leaves the graph.</figcaption>
+    <figcaption>A filled dot means the module has C code (a <code>main.c</code> or <code>main.cc</code>); a hollow dot means it has none. Green names are <em>core</em> modules, which promise backward compatibility. Everything else counts as beta. Amber connectors are sources and sinks, where data enters or leaves the graph.</figcaption>
   </figure>
 </section>
 
@@ -1249,12 +1314,12 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
   </figure>
 
   <dl class="points">
-    <div><dt>Four views, one graph</dt><dd><code>files</code> browses and imports, <code>lighttable</code> shows thumbnails, <code>darkroom</code> edits one image, <code>nodes</code> shows the same graph as boxes and wires. Darkroom and node editor share one graph object, so you can switch freely.</dd></div>
+    <div><dt>Four views, one graph</dt><dd><code>files</code> browses and imports, <code>lighttable</code> shows thumbnails, <code>darkroom</code> edits one image, <code>nodes</code> shows the same graph as boxes and wires. The darkroom and the node editor share one graph object, so you can switch freely.</dd></div>
     <div><dt>Widgets come from text</dt><dd>The darkroom reads each module's <code>params.ui</code> and draws the matching widget: slider, combo box, colour wheel, crop and perspective tools, about twenty-five widget types in all.</dd></div>
     <div><dt>Colour-managed last</dt><dd>A display sink expects linear rec2020. The interface's own fragment shader converts to the monitor's profile at the very end, for the image and the widgets alike.</dd></div>
-    <div><dt>Thumbnails are graphs too</dt><dd>Two background workers each own a graph on a spare GPU queue. They run an image's <code>.cfg</code> into the <code>o-bc1</code> module and store a GPU-compressed, gzipped file that lighttable can upload without converting the pixels.</dd></div>
+    <div><dt>Thumbnails are graphs too</dt><dd>Two pool workers each own a graph and a work queue. They run an image's <code>.cfg</code> into the <code>o-bc1</code> module and store a GPU-compressed, gzipped file that the lighttable can upload without converting the pixels.</dd></div>
     <div><dt>One graph, one thread</dt><dd>A graph is only ever run by one thread at a time. A pool with one worker per CPU core handles thumbnails, exports, file copies and audio playback.</dd></div>
-    <div><dt>Full resolution by default</dt><dd>The darkroom processes every pixel of the image, zoomed in or not. A level-of-detail setting lowers that, and a second one applies only while a slider is being dragged.</dd></div>
+    <div><dt>Full resolution by default</dt><dd>The darkroom processes every pixel of the image, zoomed in or not. A level-of-detail setting reduces the processed resolution. A second setting applies only while a slider is being dragged.</dd></div>
     <div><dt>Headless is the same code</dt><dd><code>vkdt-cli -g photo.cfg --format o-jpg</code> sets up Vulkan without a window, loads the same graph and swaps the display sink for a file output.</dd></div>
   </dl>
 </section>
@@ -1279,7 +1344,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <figcaption>The parameter names are real; the editing session is invented.</figcaption>
   </figure>
   <div class="prose">
-    <p>The history lives in memory only. Leaving the darkroom writes the current state to the <code>.cfg</code> and forgets the steps that led there. The history panel (ctrl-h) can also compress the list into a plain description of the current graph, roll back to the file on disk, or reset to the default graph.</p>
+    <p>The history lives in memory only. The history panel (ctrl-h) can also compress the list into a plain description of the current graph, roll back to the file on disk, or reset to the default graph.</p>
   </div>
 </section>
 
@@ -1290,7 +1355,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <h2>Threads and GPU queues: who runs what</h2>
   </div>
   <div class="prose">
-    <p>vkdt starts one pool of worker threads, one per CPU core, and asks the GPU for up to five queues. Each graph is run by one thread at a time and normally submits to one queue, and each queue has a lock, so two threads never talk to the same queue at once.</p>
+    <p>vkdt starts one pool of worker threads, one per CPU core, and asks the GPU for up to five queues. Each graph is run by one thread at a time and normally submits to one queue. Each queue has a lock, so two threads never submit to the same queue at once.</p>
   </div>
   <figure class="fig" id="fig-thr">
     <div class="fig-bar"><span class="fig-title">who submits where</span><div class="transport"><button type="button" data-act="prev" aria-label="Previous step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button><button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button><button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button><span class="count" data-count></span></div></div>
@@ -1355,7 +1420,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <figcaption>The pictures are the toy image from the first section in different tints. Timing is schematic.</figcaption>
   </figure>
   <dl class="points">
-    <div><dt>Half a byte per pixel</dt><dd>Thumbnails are stored in BC1, a block format graphics cards sample directly. On disk the file is gzipped as well; once unpacked, the blocks are uploaded without conversion, and hundreds of thumbnails fit into the default 16 MB of GPU memory.</dd></div>
+    <div><dt>Half a byte per pixel</dt><dd>Thumbnails are stored in BC1, a block format that graphics cards sample directly. On disk the file is gzipped as well; once unpacked, the blocks are uploaded without conversion, and hundreds of thumbnails fit into the default 16 MB of GPU memory.</dd></div>
     <div><dt>Least recently used</dt><dd>The cache has a fixed number of slots, 21 per MB. When all are taken, the slot the loader touched longest ago is reused. If the memory runs out before the slots do, the whole cache is dropped and rebuilt at twice the size.</dd></div>
     <div><dt>Leaving the darkroom is cheaper</dt><dd>The picture is already on the GPU, so vkdt shrinks the display image with a small shader and writes the thumbnail from that. The graph is not run again.</dd></div>
     <div><dt>Failures are visible</dt><dd>If a thumbnail cannot be rendered, its cache file becomes a link to a stock picture of a bomb, so the lighttable shows that something went wrong.</dd></div>
@@ -1431,7 +1496,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
     <div class="fig-bar"><span class="fig-title">what make does, and what the program does with it</span><div class="transport"><button type="button" data-act="prev" aria-label="Previous step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M9 0v10L2 5zM0 0h1.6v10H0z"/></svg></button><button type="button" data-act="play" aria-label="Play"><svg class="i-play" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l9 5-9 5z"/></svg><svg class="i-pause" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0h3v10H1zM6 0h3v10H6z"/></svg></button><button type="button" data-act="next" aria-label="Next step"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0v10l7-5zM8.4 0H10v10H8.4z"/></svg></button><span class="count" data-count></span></div></div>
     <div class="fig-body">
       <ol class="buildrows" id="build-rows">
-        <li class="b-head" aria-hidden="true"><span>from</span><span>with</span><span>comes</span></li>
+        <li class="b-head" aria-hidden="true"><span>from</span><span>with</span><span>result</span></li>
         <li data-s="1"><span class="b-src"><code>bin/config.mk.defaults</code> and your own <code>bin/config.mk</code></span><span class="b-tool">make</span><span class="b-out">the list of modules to build</span></li>
         <li data-s="2"><span class="b-src"><code>src/{core,qvk,pipe,db,snd,gui,cli,fit}/*.c</code></span><span class="b-tool">clang</span><span class="b-out"><code>bin/vkdt</code>, <code>bin/vkdt-cli</code>, <code>bin/vkdt-fit</code></span></li>
         <li data-s="3"><span class="b-src"><code>modules/*/main.c</code>, plus its <code>flat.mk</code></span><span class="b-tool">clang -fPIC</span><span class="b-out"><code>lib&lt;name&gt;.so</code>, next to the source</span></li>
@@ -1455,14 +1520,14 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
         <tr><td><code>VKDT_USE_JXL</code></td><td>jpeg-xl output, <code>o-jxl</code></td><td class="dimc">on if the library is found</td></tr>
         <tr><td><code>VKDT_USE_MLV</code> · <code>VKDT_USE_MCRAW</code></td><td>Magic Lantern and MotionCam raw video inputs</td><td class="dimc">on</td></tr>
         <tr><td><code>VKDT_USE_V4L2</code></td><td>webcam input, <code>i-v4l2</code></td><td class="dimc">on</td></tr>
-        <tr><td><code>VKDT_USE_QUAKE</code></td><td>the ray traced game module</td><td class="dimc">off</td></tr>
+        <tr><td><code>VKDT_USE_QUAKE</code></td><td>the ray-traced game module</td><td class="dimc">off</td></tr>
       </tbody>
     </table>
   </div>
   <dl class="points">
     <div><dt>Useful targets</dt><dd><code>make debug</code> builds without optimisation and switches on the Vulkan validation layers. <code>make sanitize</code> adds the address sanitizer. <code>make install</code> copies binaries, modules and data under <code>lib/vkdt/</code> below the prefix.</dd></div>
     <div><dt>Toolchains</dt><dd>C for nearly everything, with clang as the default compiler. C++ only for the exr and MotionCam modules and the optional rawspeed loader, Rust for raw loading, and glslangValidator for shaders. Required libraries are Vulkan, glfw, libjpeg and zlib.</dd></div>
-    <div><dt>Where files are looked up</dt><dd>Defaults, presets and data are searched in the graph's own folder first, then in <code>~/.config/vkdt</code>, then next to the executable. Putting a file of the same name in your config folder overrides the shipped one.</dd></div>
+    <div><dt>Where files are looked up</dt><dd>Defaults, presets and data are looked up in the graph's own folder first, then in <code>~/.config/vkdt</code>, then next to the executable. Putting a file of the same name in your config folder overrides the shipped one.</dd></div>
   </dl>
 </section>
 
@@ -1776,7 +1841,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
       { n: 'filmcurv', f: 'rgba · f16', d: 'film-style curve for display',
         s: '<b>filmcurv</b> bends scene brightness into the range a display can show, with a film-like shoulder that brings the blown-out sky back.' },
       { n: 'llap', f: 'rgba · f16', d: 'local contrast, shadows, highlights',
-        s: '<b>llap</b> adds local contrast and opens the shadows with a local laplacian pyramid.' },
+        s: '<b>llap</b> adds local contrast and opens the shadows with a local Laplacian pyramid.' },
       { n: 'grade', f: 'rgba · f16', d: 'colour grading',
         s: '<b>grade</b> applies the colour grade: lift, gamma, gain and offset per channel.' },
       { n: 'display', f: 'rgba · f16', d: 'sink: handed to the interface',
@@ -1921,7 +1986,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
       });
       const f = frames[k]; let t = `<code>${f.node.n}</code> writes ${unit(f.made.sz)} at offset ${f.made.off}`;
       t += f.made.keep ? `, kept for good because a ${f.made.keep === 'source' ? 'source owns it' : 'sink reads it'}.` : ', the first gap that fits.';
-      if (f.freed.length) { const z = f.freed[0].sz; t += ` Once it has run, nobody else reads the output of <code>${f.freed[0].by}</code>, so ${z === 1 ? 'that unit is' : 'those ' + z + ' units are'} free for the next node.`; }
+      if (f.freed.length) { const z = f.freed[0].sz; t += ` After this node, nothing else reads the output of <code>${f.freed[0].by}</code>, so ${z === 1 ? 'that unit is' : 'those ' + z + ' units are'} free for the next node.`; }
       say.innerHTML = t;
     }
     player(root, { count: NODES.length, show, interval: 2300, hold: 3800 });
@@ -2036,7 +2101,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
         ['c', 'copy buffer to image', 'The staging buffer becomes a GPU image.'], ['b', 'barrier', 'Make it ready to be read.'], T1] },
       { n: 'demosaic / halfsize', sub: 'compute, 3000 × 2000', rows: [B2, T0,
         ['s', 'bind pipeline', 'The compiled shader, <code>demosaic/halfsize.comp.spv</code>.'],
-        ['s', 'bind descriptor sets', 'Set 0 holds the uniforms, set 1 this node\'s input and output image.'],
+        ['s', 'bind descriptor sets', 'Set 0 holds the uniforms, set 1 holds this node\'s input and output images.'],
         ['s', 'push constants', 'A few values that are not parameters: the four white balance factors and the sensor\'s colour filter pattern.'],
         ['d', 'dispatch 375 × 250 × 1', 'One group of shader invocations per 8 × 8 pixels.'], T1] },
       { n: 'shared / resample', sub: 'compute, 1500 × 1000', rows: [B2, T0,
@@ -2155,11 +2220,11 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     const root = $('#fig-thr'); if (!root) return;
     const S = [
       { t: ['ui'], q: ['qg'], w: ['ui'], say: 'The interface is built and presented by the main thread, through the graphics queue.' },
-      { t: ['dr'], q: ['qc'], w: ['dr'], say: 'The darkroom graph also belongs to the main thread, but it submits to the compute queue, so image processing and interface drawing do not queue up behind each other.' },
+      { t: ['dr'], q: ['qc'], w: ['dr'], say: 'The darkroom graph also belongs to the main thread, but it submits to the compute queue. Image processing and interface drawing therefore do not wait for each other.' },
       { t: ['w0', 'w1'], q: ['q0', 'q1'], w: ['w0', 'w1'], say: 'Two pool workers render missing thumbnails. Each has its own graph and its own work queue.' },
       { t: ['ld'], q: ['q0'], w: ['ld'], say: 'Finished thumbnails are loaded for display by the main thread through work queue 0, which it shares with the first worker.' },
       { t: ['ex'], q: ['qc'], w: ['ex'], say: 'An export job takes one pool worker for the whole batch and submits to the compute queue, the same one the darkroom uses.' },
-      { t: ['au'], q: [], w: [], say: 'Sound occupies one pool worker for as long as playback lasts. It needs no GPU queue.' },
+      { t: ['au'], q: [], w: [], say: 'Audio playback occupies one pool worker for as long as playback lasts. It needs no GPU queue.' },
       { t: [], q: ['qg', 'qc', 'q0', 'q1', 'qv'], w: [], say: 'Every queue has a lock. Two threads never submit to the same queue at the same moment.' },
     ];
     const tb = $$('.tb', root), tq = $$('.tq', root), tw = $$('.twire', root), say = $('#thr-say');
@@ -2191,7 +2256,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
       'Two pool workers each take an image and run its whole graph, limited to 400 pixels, into the <code>o-bc1</code> output module.',
       '<code>o-bc1</code> compresses the result on the CPU and writes <code>~/.cache/vkdt/&lt;hash&gt;.bc1</code>. The worker then wakes the main loop.',
       'The main thread loads each new file through a two-module graph, <code>i-bc1 → thumb</code>, into a GPU texture, and the cell draws it.',
-      'And so on, two images at a time, while you can already browse.',
+      'The remaining images follow, two at a time. You can browse while they render.',
       'The same folder again. Every cache file is newer than its <code>.cfg</code>, so the workers have nothing to do.',
       'The main thread uploads up to twenty cached thumbnails per frame. The folder is on screen almost at once.',
     ];
@@ -2224,7 +2289,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
       'The same image also goes to <code>exposure</code>.',
       'The exposure-shifted copy becomes the foreground. The mask decides where it shows.',
       'An input holds one wire, so connecting <code>blend</code> to <code>colour</code> replaces the old wire from <code>crop</code>.',
-      'These two lines only work if a dodge preset is already in the graph. Here they fail, and a failed line in a preset is simply skipped.',
+      'These two lines only work if a dodge preset is already in the graph. Here they fail. A failed line in a preset is skipped.',
       'Four parameters are set, and that is the whole preset: fourteen lines of the same text format as the graph itself.',
     ];
     player(root, { count: SAY.length, interval: 2900, hold: 4600, show: k => {
@@ -2250,7 +2315,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     const g = PATCH[0];
     const ST = [
       { who: 'i-raw', prim: 'custom', trc: 'linear', f: p => counts(p).map(v => v / WHITE), num: `grey card, green: <b>${counts(g)[1]}</b> of ${WHITE} counts`,
-        say: 'The file holds sensor counts behind red, green and blue filters. <code>i-raw</code> tags the buffer as custom primaries, linear, and attaches what later modules need to interpret it: black and white level, white balance, a noise profile, and a 3 × 3 matrix leading from this camera to rec2020.' },
+        say: 'The file holds sensor counts behind red, green and blue filters. <code>i-raw</code> tags the buffer as custom primaries, linear. It also attaches what later modules need to interpret the buffer: black and white level, white balance, a noise profile, and a 3 × 3 matrix leading from this camera to rec2020.' },
       { who: 'denoise', prim: 'custom', trc: 'linear', f: p => cam(p), num: `grey card, green: <b>${cam(g)[1].toFixed(3)}</b>`,
         say: '<code>denoise</code> subtracts the black level and divides by the span between black and white level, so values now run from 0 to 1. They are still the camera\'s own colours, which is why everything looks dark and green.' },
       { who: 'colour', prim: '2020', trc: 'linear', f: p => p, num: `grey card: <b>${g[1].toFixed(3)}</b>, sunlit white: <b>${PATCH[5][1].toFixed(1)}</b>`,
@@ -2343,6 +2408,85 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     const P = player(root, { count: SAY.length, interval: 4200, hold: 5200, show: k => {
       rows.forEach((r, j) => { r.classList.toggle('now', j === k); r.classList.toggle('later', j > k); }); say.innerHTML = SAY[k];
     } });
+  })();
+
+  /* ── four modules, four formulas ──────────────────────────────────── */
+  (() => {
+    const root = $('#fig-alg'); if (!root) return;
+    const PX = 46, PY = 214, PW = 346, PH = 202;
+    const mix = (a, b, t) => a + (b - a) * t, clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+    const A = {
+      filmcurv: {
+        x: [0, 2], y: [0, 1], xl: 'scene brightness, linear (0.18 is middle grey)', yl: 'display', xt: [0, 0.5, 1, 1.5, 2], yt: [0, 0.5, 1],
+        sl: [['light', 0, 10, 0.05, 3], ['contrast', 0, 2, 0.01, 1.2], ['bias', 0, 0.02, 0.0005, 0]],
+        formula: 'y = 1 - exp(-((x + bias) * light) ^ contrast)',
+        text: 'A Weibull curve. It rises steeply through the shadows and flattens towards 1, so bright scene values are compressed and never clip. It is applied to each channel, and in the default colour mode the middle channel is then put back in proportion between the other two to keep the hue. The dashed line is what plain clipping would do.',
+        nodes: 'three nodes: the curve itself, plus two that draw its plot in the darkroom',
+        draw: p => [{ f: x => 1 - Math.exp(-Math.pow(Math.max(x + p.bias, 1e-7) * Math.max(5e-3, p.light), Math.max(1e-4, p.contrast))), c: 'c0' }, { f: x => Math.min(1, x), c: 'c1' }],
+        dots: p => [[0.18, 1 - Math.exp(-Math.pow((0.18 + p.bias) * Math.max(5e-3, p.light), Math.max(1e-4, p.contrast)))]],
+      },
+      llap: {
+        x: [0, 1], y: [0, 1], xl: 'brightness in', yl: 'brightness out', xt: [0, 0.5, 1], yt: [0, 0.5, 1],
+        sl: [['clarity', -1, 3, 0.02, 0.6], ['shadows', 0, 10, 0.05, 1], ['hilights', 0, 10, 0.05, 1]],
+        formula: 'c = x - g              g = 0, 1/9, ... 1\nv = base(c) + clarity * c * exp(-3 c^2 / (2 sigma^2))\nbase: the identity near g at the defaults,\n      slope shadows or hilights beyond 2 sigma',
+        text: 'Ten copies of the image\'s brightness are made, each bent around one grey level <code>g</code>: steeper close to <code>g</code> when clarity is positive, with separate slopes further away. Every copy becomes a pyramid. When the picture is rebuilt from coarse to fine, each pixel takes its detail from the two copies whose <code>g</code> brackets the local average. That is the local Laplacian filter: contrast is changed relative to the surroundings, without halos.',
+        nodes: 'one curve node, a reduce and an assemble node per pyramid level, one colour node: 24 for a 6000 × 4000 image',
+        draw: p => { const sg = 0.12, out = [{ f: x => x, c: 'c1' }];
+          for (let i = 0; i < 10; i++) { const g = i / 9; out.push({ c: i === 4 ? 'c0' : 'c2', lo: g - 0.3, hi: g + 0.3, f: x => {
+            const c = x - g, ss = c > 0 ? sg : -sg, sh = c > 0 ? p.shadows : p.hilights; let v;
+            if (Math.abs(c) > 2 * sg) v = g + ss + sh * (c - ss);
+            else { const t = clamp(c / (2 * ss), 0, 1); v = g + ss * 2 * (1 - t) * t + t * t * (ss + ss * sh); }
+            return v + p.clarity * c * Math.exp(-c * c / (2 * sg * sg / 3)); } }); }
+          return out; },
+      },
+      denoise: {
+        x: [-4, 4], y: [-4, 4], xl: 'detail coefficient in, in units of expected noise', yl: 'out', xt: [-4, -2, 0, 2, 4], yt: [-4, -2, 0, 2, 4],
+        sl: [['strength', 0, 1, 0.005, 0.9]],
+        formula: 'sigma = sqrt(a + b * x)        noise expected at brightness x\nd = detail / sigma\nT = strength ^ 4\nout = sign(d) * mix(max(|d| - T, 0), |d|, min(1, |d| / (2 * T)))',
+        text: 'The image is split into bands of detail at four scales. Each value is divided by the noise the camera\'s profile predicts at that brightness, <code>a</code> for the constant part and <code>b</code> for the part that grows with light. Small values are probably noise and are pulled towards zero. Values above twice the threshold are probably edges and pass unchanged. With strength at its default of 0 none of this runs.',
+        nodes: 'one node at strength 0; otherwise seven for a raw image: half, four scales, assemble, and one that rebuilds the mosaic',
+        draw: p => { const T = Math.pow(p.strength, 4); return [{ f: d => { const a = Math.abs(d); return T < 1e-9 ? d : Math.sign(d) * mix(Math.max(a - T, 0), a, Math.min(1, a / (2 * T))); }, c: 'c0' }, { f: d => d, c: 'c1' }]; },
+      },
+      grade: {
+        x: [0, 1], y: [0, 1], xl: 'in', yl: 'out', xt: [0, 0.5, 1], yt: [0, 0.5, 1],
+        sl: [['lift', -0.2, 0.2, 0.002, 0.06], ['gamma', 0.8, 1.2, 0.002, 1], ['gain', 0.8, 1.2, 0.002, 1], ['offset', -0.2, 0.2, 0.002, 0]],
+        formula: 'rgb = gain * rgb\nrgb = rgb * (1 - lift) + lift\nrgb = pow(max(rgb, 0), 1 / gamma)\nrgb = rgb + offset',
+        text: 'The whole module is these four lines, applied to each channel with its own values, which is what the colour wheels in the darkroom set. Lift moves the dark end, gain the bright end, gamma the middle, and offset everything. It has no C code and becomes a single node.',
+        nodes: 'one node',
+        draw: p => [{ f: x => Math.pow(Math.max(p.gain * x * (1 - p.lift) + p.lift, 0), 1 / Math.max(1e-6, p.gamma)) + p.offset, c: 'c0' }, { f: x => x, c: 'c1' }],
+      },
+    };
+    const curves = $('#alg-curves'), ticks = $('#alg-ticks'), grid = $('#alg-grid'), sl = $('#alg-sliders'), btns = $$('[data-alg]', root);
+    let cur = 'filmcurv', P = {}, touched = false, raf = 0, on = false, t0 = 0;
+    const draw = () => {
+      const a = A[cur], X = x => PX + (x - a.x[0]) / (a.x[1] - a.x[0]) * PW, Y = y => PY - (clamp(y, a.y[0] - 0.02 * (a.y[1] - a.y[0]), a.y[1] + 0.02 * (a.y[1] - a.y[0])) - a.y[0]) / (a.y[1] - a.y[0]) * PH;
+      let h = '';
+      a.draw(P).forEach(c => { const lo = Math.max(a.x[0], c.lo ?? a.x[0]), hi = Math.min(a.x[1], c.hi ?? a.x[1]); let d = '';
+        for (let i = 0; i <= 120; i++) { const x = lo + (hi - lo) * i / 120; d += (i ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(c.f(x)).toFixed(1); }
+        h += `<path class="${c.c}" d="${d}"/>`; });
+      (a.dots ? a.dots(P) : []).forEach(q => { h += `<circle class="dot" cx="${X(q[0]).toFixed(1)}" cy="${Y(q[1]).toFixed(1)}" r="4"/>`; });
+      curves.innerHTML = h;
+    };
+    function pick(k) {
+      cur = k; const a = A[k]; P = {}; touched = false; t0 = performance.now();
+      btns.forEach(b => b.setAttribute('aria-pressed', b.dataset.alg === k));
+      const X = x => PX + (x - a.x[0]) / (a.x[1] - a.x[0]) * PW, Y = y => PY - (y - a.y[0]) / (a.y[1] - a.y[0]) * PH;
+      ticks.innerHTML = a.xt.map(v => `<text x="${X(v)}" y="228" font-size="10.5" text-anchor="middle" class="t-dim">${v}</text>`).join('') + a.yt.map(v => `<text x="40" y="${Y(v) + 3.5}" font-size="10.5" text-anchor="end" class="t-dim">${v}</text>`).join('');
+      grid.setAttribute('d', a.yt.map(v => `M${PX} ${Y(v)}H${PX + PW}`).join('') + a.xt.map(v => `M${X(v)} ${PY}V${PY - PH}`).join(''));
+      $('#alg-xl').textContent = a.xl; $('#alg-yl').textContent = a.yl;
+      $('#alg-formula').textContent = a.formula; $('#alg-text').innerHTML = a.text; $('#alg-nodes').textContent = a.nodes;
+      sl.innerHTML = a.sl.map(([n, lo, hi, st, v]) => `<label class="param" for="alg-${n}">${n}<span class="row"><input type="range" id="alg-${n}" data-p="${n}" min="${lo}" max="${hi}" step="${st}" value="${v}"><output for="alg-${n}">${v}</output></span></label>`).join('');
+      a.sl.forEach(([n, , , , v]) => P[n] = v); draw();
+    }
+    sl.addEventListener('input', e => { const i = e.target; touched = true; P[i.dataset.p] = +i.value; i.nextElementSibling.textContent = (+i.value).toFixed(i.step < 0.001 ? 4 : 2); draw(); });
+    btns.forEach(b => b.addEventListener('click', () => pick(b.dataset.alg)));
+    const sweep = now => {
+      if (on && !touched) { const [n, lo, hi, st, v] = A[cur].sl[0], i = $('#alg-' + n), amp = Math.min(v - lo, hi - v) * 0.6 || (hi - lo) * 0.3;
+        const x = clamp(v + amp * Math.sin((now - t0) / 1400), lo, hi); P[n] = x; if (i) { i.value = x; i.nextElementSibling.textContent = x.toFixed(2); } draw(); }
+      if (on) raf = requestAnimationFrame(sweep);
+    };
+    pick('filmcurv');
+    if (!calm) onScreen(root, v => { cancelAnimationFrame(raf); on = v; if (v) { t0 = performance.now(); raf = requestAnimationFrame(sweep); } });
   })();
 })();
 </script>
