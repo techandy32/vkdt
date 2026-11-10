@@ -10,6 +10,7 @@ what it covers, in order:
 
 * one raw image followed through the default darkroom graph
 * the three main binaries (`vkdt`, `vkdt-cli`, `vkdt-fit`) and the code they share
+* what the pixel values mean at each stage, from sensor counts to the monitor
 
 **the engine**
 
@@ -20,6 +21,7 @@ what it covers, in order:
   descriptor set
 * how buffer memory is planned and reused
 * frames, keyframe easing and feedback connectors
+* `vkdt-fit`: running the graph as a function to fit parameters
 
 **modules**
 
@@ -30,9 +32,11 @@ what it covers, in order:
 **the app**
 
 * the gui main loop and how the graph output reaches the screen
+* the edit history: undo as a replay of config lines
 * threads and gpu queues: who submits where
 * how lighttable thumbnails are rendered, cached and displayed
 * what vkdt reads and writes on disk, and how a preset rewires a graph
+* the build: what make produces and how the program finds it
 * a source map with good first files to read, and a glossary
 
 the figures simplify on purpose. where a figure and the code disagree, the
