@@ -44,6 +44,8 @@ strong{font-weight:600}
 .top{display:flex;flex-direction:column;gap:18px;margin-bottom:56px}
 .eyebrow{font:500 12.5px/1.4 var(--mono);color:var(--dim);letter-spacing:.02em;overflow-wrap:anywhere}
 .eyebrow b{color:var(--gpu);font-weight:500}
+.eyebrow .up{float:right;margin-left:14px;color:var(--dim);text-decoration:none}
+.eyebrow .up:hover{color:var(--gpu)}
 h1{font:600 clamp(27px,5.4vw,46px)/1.12 var(--mono);letter-spacing:-.025em;margin:0;text-wrap:balance}
 .lede{font-size:clamp(17px,2.2vw,19px);line-height:1.58;max-width:62ch}
 .toc{display:flex}
@@ -55,6 +57,7 @@ h1{font:600 clamp(27px,5.4vw,46px)/1.12 var(--mono);letter-spacing:-.025em;margi
 
 /* sections */
 section{display:flex;flex-direction:column;gap:18px;margin-top:72px;scroll-margin-top:16px}
+.top{scroll-margin-top:16px}
 .sec-head{display:flex;flex-direction:column;gap:8px}
 h2{font:600 clamp(23px,3.6vw,30px)/1.2 var(--sans);letter-spacing:-.012em;margin:0;text-wrap:balance}
 h3{font:600 17px/1.3 var(--sans);margin:0}
@@ -439,7 +442,7 @@ pre.tree .g{color:var(--gpu)}
 <body>
 <div class="wrap">
 
-<header class="top">
+<header class="top" id="top">
   <p class="eyebrow"><b>vkdt</b> · architecture guide</p>
   <h1>how a raw file becomes a picture</h1>
   <p class="lede">vkdt develops raw photos and video on the graphics card. Every image operation is a small GPU program, and the whole application is organised around one structure: a graph of those programs. This guide follows an image through that graph, then looks at each part of the code that makes it work.</p>
@@ -455,7 +458,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 1 · flow ───────────────────────── -->
 <section id="flow">
   <div class="sec-head">
-    <p class="eyebrow">bin/default-darkroom.i-raw</p>
+    <p class="eyebrow">bin/default-darkroom.i-raw <a class="up" href="#top">contents ↑</a></p>
     <h2>Follow one image through the graph</h2>
   </div>
   <div class="prose">
@@ -517,7 +520,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 2 · parts ───────────────────────── -->
 <section id="parts">
   <div class="sec-head">
-    <p class="eyebrow">src/</p>
+    <p class="eyebrow">src/ <a class="up" href="#top">contents ↑</a></p>
     <h2>Three programs, one engine</h2>
   </div>
   <div class="prose">
@@ -558,7 +561,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 3 · layers ───────────────────────── -->
 <section id="layers">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/module.h · src/pipe/node.h</p>
+    <p class="eyebrow">src/pipe/module.h · src/pipe/node.h <a class="up" href="#top">contents ↑</a></p>
     <h2>You edit modules, the GPU runs nodes</h2>
   </div>
   <div class="prose">
@@ -625,7 +628,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 4 · run ───────────────────────── -->
 <section id="run">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/graph.c · dt_graph_run()</p>
+    <p class="eyebrow">src/pipe/graph.c · dt_graph_run() <a class="up" href="#top">contents ↑</a></p>
     <h2>What one run of the graph does</h2>
   </div>
   <div class="prose">
@@ -723,7 +726,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── gpu ───────────────────────── -->
 <section id="gpu">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/graph-run-nodes-record-cmd.h</p>
+    <p class="eyebrow">src/pipe/graph-run-nodes-record-cmd.h <a class="up" href="#top">contents ↑</a></p>
     <h2>What the GPU is actually told</h2>
   </div>
   <div class="prose">
@@ -767,7 +770,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 5 · memory ───────────────────────── -->
 <section id="memory">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/alloc.c · src/pipe/graph-run-nodes-allocate.h</p>
+    <p class="eyebrow">src/pipe/alloc.c · src/pipe/graph-run-nodes-allocate.h <a class="up" href="#top">contents ↑</a></p>
     <h2>A few blocks of memory, planned in advance</h2>
   </div>
   <div class="prose">
@@ -807,7 +810,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 7 · time ───────────────────────── -->
 <section id="time">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/anim.h · src/pipe/connector.h</p>
+    <p class="eyebrow">src/pipe/anim.h · src/pipe/connector.h <a class="up" href="#top">contents ↑</a></p>
     <h2>Frames, keyframes and feedback</h2>
   </div>
   <div class="prose">
@@ -875,7 +878,7 @@ pre.tree .g{color:var(--gpu)}
 <!-- ───────────────────────── 6 · module ───────────────────────── -->
 <section id="module">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/modules/exposure/</p>
+    <p class="eyebrow">src/pipe/modules/exposure/ <a class="up" href="#top">contents ↑</a></p>
     <h2>Inside a module</h2>
   </div>
   <div class="prose">
@@ -961,7 +964,7 @@ void main()
 <!-- ───────────────────────── write ───────────────────────── -->
 <section id="write">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/modules/&lt;yours&gt;/</p>
+    <p class="eyebrow">src/pipe/modules/&lt;yours&gt;/ <a class="up" href="#top">contents ↑</a></p>
     <h2>Write your own module</h2>
   </div>
   <div class="prose">
@@ -1059,7 +1062,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── catalogue ───────────────────────── -->
 <section id="catalog">
   <div class="sec-head">
-    <p class="eyebrow">src/pipe/modules/ · 101 folders</p>
+    <p class="eyebrow">src/pipe/modules/ · 101 folders <a class="up" href="#top">contents ↑</a></p>
     <h2>Every module at a glance</h2>
   </div>
   <div class="prose">
@@ -1082,7 +1085,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── 8 · app ───────────────────────── -->
 <section id="app">
   <div class="sec-head">
-    <p class="eyebrow">src/gui/main.c</p>
+    <p class="eyebrow">src/gui/main.c <a class="up" href="#top">contents ↑</a></p>
     <h2>The application around the graph</h2>
   </div>
   <div class="prose">
@@ -1133,7 +1136,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── threads ───────────────────────── -->
 <section id="threads">
   <div class="sec-head">
-    <p class="eyebrow">src/core/threads.c · src/qvk/qvk.h</p>
+    <p class="eyebrow">src/core/threads.c · src/qvk/qvk.h <a class="up" href="#top">contents ↑</a></p>
     <h2>Threads and GPU queues: who runs what</h2>
   </div>
   <div class="prose">
@@ -1176,7 +1179,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── lighttable ───────────────────────── -->
 <section id="light">
   <div class="sec-head">
-    <p class="eyebrow">src/db/thumbnails.c</p>
+    <p class="eyebrow">src/db/thumbnails.c <a class="up" href="#top">contents ↑</a></p>
     <h2>How the lighttable gets its pictures</h2>
   </div>
   <div class="prose">
@@ -1212,7 +1215,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── 9 · disk ───────────────────────── -->
 <section id="disk">
   <div class="sec-head">
-    <p class="eyebrow">src/db/</p>
+    <p class="eyebrow">src/db/ <a class="up" href="#top">contents ↑</a></p>
     <h2>Your folder is the database</h2>
   </div>
   <div class="prose">
@@ -1268,7 +1271,7 @@ const int id_map = <span class="k">dt_node_add</span>(graph, module, "ciediag", 
 <!-- ───────────────────────── 10 · map ───────────────────────── -->
 <section id="map">
   <div class="sec-head">
-    <p class="eyebrow">where to start reading</p>
+    <p class="eyebrow">where to start reading <a class="up" href="#top">contents ↑</a></p>
     <h2>Source map</h2>
   </div>
   <div class="scroll-x">
@@ -1525,6 +1528,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TOY = SIM.render(0);       // the toy picture at its default exposure, shared by several figures
 
   /* a small transport: steps a figure through `count` states, plays while on screen */
   function player(root, { count, show, interval = 2200, hold = 3400, rest }) {
@@ -1544,6 +1548,10 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     const prev = $('[data-act=prev]', root), next = $('[data-act=next]', root);
     if (prev) prev.addEventListener('click', () => manual(i - 1));
     if (next) next.addEventListener('click', () => manual(i + 1));
+    root.addEventListener('keydown', e => {
+      if (e.target.matches('input, textarea, select') || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); manual(i + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); manual(i - 1); }
+    });
     if ('IntersectionObserver' in window && !calm) {
       new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { if (!held) start(); } else stop(); }), { threshold: 0.35 }).observe(root);
     }
@@ -1581,7 +1589,7 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     const ev = $('#ev'), evo = $('#evo');
     list.innerHTML = MODS.map((m, k) => `<li class="${m.cpu ? 'cpu' : ''}" style="--i:${k}"><button type="button" data-k="${k}"><span class="dot"></span><span class="nm">${m.n}</span><span class="ds">${m.d}</span></button></li>`).join('');
     const items = $$('li', list);
-    let R = SIM.render(0), shown = -1, raf = 0, note = '';
+    let R = TOY, shown = -1, raf = 0, note = '';
     const img = k => new ImageData(R.frames[k], SIM.W, SIM.H);
     const off = document.createElement('canvas'); off.width = SIM.W; off.height = SIM.H; const ox = off.getContext('2d');
     function drawHist() { hx.putImageData(new ImageData(R.hist, R.HW, R.HH), 0, 0); }
@@ -1769,7 +1777,6 @@ const CAT = {"order":["input","output","visualisation and inspection","raw proce
     player(root, { count: T.length, rest: 0, interval: 950, hold: 1500, show });
   })();
 
-  const TOY = SIM.render(0);
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const onScreen = (el, fn) => { if ('IntersectionObserver' in window) new IntersectionObserver(es => es.forEach(e => fn(e.isIntersecting)), { threshold: 0.3 }).observe(el); else fn(true); };
 
