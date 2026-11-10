@@ -42,6 +42,9 @@ strong{font-weight:600}
 
 /* header */
 .top{display:flex;flex-direction:column;gap:18px;margin-bottom:56px}
+.lang{font:500 12.5px/1 var(--mono);text-align:right;margin-bottom:-14px}
+.lang a{color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:3px;padding:6px 9px;display:inline-block}
+.lang a:hover{color:var(--gpu);border-color:var(--gpu)}
 .eyebrow{font:500 12.5px/1.4 var(--mono);color:var(--dim);letter-spacing:.02em;overflow-wrap:anywhere}
 .eyebrow b{color:var(--gpu);font-weight:500}
 .eyebrow .up{float:right;margin-left:14px;color:var(--dim);text-decoration:none}
@@ -508,6 +511,7 @@ pre.tree .g{color:var(--gpu)}
 <div class="wrap">
 
 <header class="top" id="top">
+  <p class="lang"><a href="index.zh.html" lang="zh-Hans" hreflang="zh-Hans">中文版</a></p>
   <p class="eyebrow"><b>vkdt</b> · architecture guide</p>
   <h1>how a raw file becomes a picture</h1>
   <p class="lede">vkdt develops raw photos and video on the graphics card. Every image operation is a small GPU program, and the whole application is organised around one structure: a graph of those programs. This guide follows an image through that graph, then looks at each part of the code that makes it work.</p>

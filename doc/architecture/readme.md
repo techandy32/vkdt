@@ -4,6 +4,9 @@
 through how vkdt is put together. it is one self-contained file: open it in a
 browser. it needs no build step and makes no network requests.
 
+[index.zh.html](index.zh.html) is the same guide in simplified chinese
+(简体中文版).
+
 what it covers, in order:
 
 **the idea**
